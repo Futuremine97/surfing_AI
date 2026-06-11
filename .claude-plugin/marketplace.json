@@ -8,10 +8,7 @@
   "plugins": [
     {
       "name": "verification-gated-harness",
-      "source": {
-        "source": "github",
-        "repo": "Futuremine97/surfing_AI"
-      },
+      "source": "./",
       "description": "Surfing AI coordinates agent and subagent work with verification, safe execution, approval, and release gates.",
       "homepage": "https://github.com/Futuremine97/surfing_AI#readme",
       "repository": "https://github.com/Futuremine97/surfing_AI",
