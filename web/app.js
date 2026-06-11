@@ -489,8 +489,15 @@ function installChat() {
     history.push({ role: "user", content: text });
     sendButton.disabled = true;
     const pending = append("assistant", "…", "SURFING AI");
+    const startedAt = Date.now();
+    const ticker = setInterval(() => {
+      const seconds = Math.round((Date.now() - startedAt) / 1000);
+      pending.querySelector("p").textContent =
+        `Thinking… ${seconds}s (local backends may take a couple of minutes)`;
+    }, 1000);
     try {
       const data = await postJSON("/api/chat", { messages: history });
+      clearInterval(ticker);
       pending.querySelector("p").textContent = data.reply;
       history.push({ role: "assistant", content: data.reply });
       const modeBadge = qs("#chat-mode-badge");
@@ -503,6 +510,7 @@ function installChat() {
       routeBadge.className =
         `data-badge ${statusClass(data.analysis.risk_level)}`;
     } catch (error) {
+      clearInterval(ticker);
       pending.querySelector("p").textContent = `Error: ${error.message}`;
       pending.classList.add("error");
       history.pop();
