@@ -638,6 +638,39 @@ function installConnections() {
             alert(error.message);
           }
         });
+        if (item.kind === "plugin") {
+          const convert = document.createElement("span");
+          convert.className = "convert-button";
+          convert.textContent = "→ CODEX";
+          convert.title = "Convert this plugin for Codex (prompts + MCP config)";
+          convert.addEventListener("click", async (event) => {
+            event.stopPropagation();
+            try {
+              const plan = await postJSON("/api/convert-plugin",
+                { path: item.path, dry_run: true });
+              const planned = plan.actions.filter((a) => a.status === "planned");
+              const skipped = plan.actions.filter((a) => a.status === "skipped_exists");
+              if (!planned.length) {
+                alert(`${plan.plugin}: nothing new to convert` +
+                  (skipped.length ? ` (${skipped.length} already exist)` : "") +
+                  (plan.notes.length ? `\n${plan.notes.join("\n")}` : ""));
+                return;
+              }
+              const summary = planned
+                .map((a) => `• [${a.kind}] ${a.target}`).join("\n");
+              if (!confirm(`Convert "${plan.plugin}" for Codex?\n\n` +
+                `${summary}\n\n${skipped.length} item(s) already exist and will be skipped.`)) return;
+              const result = await postJSON("/api/convert-plugin",
+                { path: item.path, dry_run: false });
+              const written = result.actions.filter((a) => a.status === "written").length;
+              alert(`${result.plugin}: ${written} item(s) converted for Codex.` +
+                (result.notes.length ? `\n${result.notes.join("\n")}` : ""));
+            } catch (error) {
+              alert(error.message);
+            }
+          });
+          card.appendChild(convert);
+        }
       } else {
         card.disabled = true;
       }

@@ -16,6 +16,7 @@ from urllib.parse import urlparse
 from . import __version__
 from .chat_agent import ChatAgent
 from .connections import scan_connections
+from .plugin_bridge import apply_plan, build_plan, is_claude_plugin
 from .context_reducer import reduce_context
 from .coupled_approval_guard import CoupledApprovalState, evaluate
 from .multi_agent import build_orchestration_plan, runtime_catalog
@@ -44,6 +45,30 @@ class WebAppService:
         report = scan_connections(project_root=self.project_root)
         self._openable_paths = report.paths()
         return report.to_dict()
+
+    def convert_plugin(self, payload: dict) -> dict:
+        """Convert an installed Claude Code plugin for Codex use.
+        dry_run=true returns the plan; only paths from the latest
+        connections scan are accepted."""
+        target = str(payload.get("path", ""))
+        if target not in self._openable_paths:
+            raise ValueError("path is not in the latest connections scan")
+        root = Path(target)
+        if is_claude_plugin(root):
+            plugin_dir = root
+        else:
+            manifests = (list(root.glob("*/.claude-plugin/plugin.json"))
+                         + list(root.glob("*/*/.claude-plugin/plugin.json")))
+            if not manifests:
+                raise ValueError("no Claude Code plugin found under this path")
+            plugin_dir = manifests[0].parent.parent
+        plan = build_plan(plugin_dir)
+        if not bool(payload.get("dry_run", True)):
+            plan = apply_plan(plan)
+            self.trace.record("connections", "plugin_converted",
+                              plugin=plan.plugin,
+                              actions=[a.status for a in plan.actions])
+        return plan.to_dict()
 
     def open_path(self, payload: dict) -> dict:
         """Reveal a previously listed path in the local file manager.
@@ -256,6 +281,7 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
         routes = {
             "/api/chat": self.service.chat,
             "/api/open": self.service.open_path,
+            "/api/convert-plugin": self.service.convert_plugin,
             "/api/orchestrate": self.service.orchestrate,
             "/api/analyze": self.service.analyze,
             "/api/scan-command": self.service.scan_command,
