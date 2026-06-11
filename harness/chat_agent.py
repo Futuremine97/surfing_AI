@@ -73,6 +73,19 @@ class ChatAgent:
         self.model = model
         self.small_agent = SmallAgent()
 
+    def _api_key(self) -> str:
+        """Environment variable first, then the gitignored .env file."""
+        key = os.environ.get(API_KEY_ENV, "")
+        if key:
+            return key
+        env_file = self.project_root / ".env"
+        if env_file.is_file():
+            for line in env_file.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line.startswith(API_KEY_ENV + "="):
+                    return line.split("=", 1)[1].strip().strip("'\"")
+        return ""
+
     # ---- harness gates -------------------------------------------------
 
     def _analyze(self, messages: list[dict]) -> dict:
@@ -103,7 +116,7 @@ class ChatAgent:
     # ---- backends ------------------------------------------------------
 
     def _call_model(self, messages: list[dict]) -> str:
-        api_key = os.environ.get(API_KEY_ENV, "")
+        api_key = self._api_key()
         body = json.dumps({
             "model": self.model,
             "max_tokens": 1024,
@@ -160,7 +173,7 @@ class ChatAgent:
             return {"reply": reply, "mode": "privacy_blocked",
                     "analysis": analysis, "model": None}
 
-        if os.environ.get(API_KEY_ENV):
+        if self._api_key():
             try:
                 reply = self._call_model(messages)
                 return {"reply": reply, "mode": "model",
@@ -176,8 +189,9 @@ class ChatAgent:
 
         reply = self._offline_reply(
             messages, analysis,
-            "No ANTHROPIC_API_KEY is set, so I answered with the local "
-            "deterministic assistant. Export the key and restart to chat "
-            "with the full model.")
+            "No ANTHROPIC_API_KEY found, so I answered with the local "
+            "deterministic assistant. Set it as an environment variable or "
+            "put ANTHROPIC_API_KEY=... in the project's .env file, then "
+            "restart the server to chat with the full model.")
         return {"reply": reply, "mode": "offline",
                 "analysis": analysis, "model": None}
