@@ -14,6 +14,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from . import __version__
+from .backend_doctor import diagnose, launch_login
 from .chat_agent import ChatAgent
 from .connections import scan_connections
 from .plugin_bridge import apply_plan, build_plan, is_claude_plugin
@@ -45,6 +46,14 @@ class WebAppService:
         report = scan_connections(project_root=self.project_root)
         self._openable_paths = report.paths()
         return report.to_dict()
+
+    def backends(self, payload: dict | None = None) -> dict:
+        return {"backends": diagnose(project_root=self.project_root)}
+
+    def backend_login(self, payload: dict) -> dict:
+        result = launch_login(str(payload.get("backend", "")))
+        self.trace.record("backends", "login_launched", **result)
+        return result
 
     def convert_plugin(self, payload: dict) -> dict:
         """Convert an installed Claude Code plugin for Codex use.
@@ -262,6 +271,9 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/connections":
             self._send_json(self.service.connections())
             return
+        if path == "/api/backends":
+            self._send_json(self.service.backends())
+            return
         if path in ("/download/surfing-ai.zip", "/download/harness.zip"):
             self._send_download()
             return
@@ -282,6 +294,7 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
             "/api/chat": self.service.chat,
             "/api/open": self.service.open_path,
             "/api/convert-plugin": self.service.convert_plugin,
+            "/api/backends/login": self.service.backend_login,
             "/api/orchestrate": self.service.orchestrate,
             "/api/analyze": self.service.analyze,
             "/api/scan-command": self.service.scan_command,

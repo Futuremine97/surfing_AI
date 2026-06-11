@@ -604,6 +604,70 @@ function installChat() {
   });
 }
 
+function installBackends() {
+  const connectButton = qs("#backends-connect");
+  if (!connectButton) return;
+  const cardsBox = qs("#backend-cards");
+
+  const render = (backends) => {
+    cardsBox.replaceChildren();
+    backends.forEach((b) => {
+      const card = document.createElement("div");
+      const authed = b.authenticated === true || b.key_present;
+      const state = !b.installed ? "missing" : (authed ? "ok" : "warn");
+      card.className = `backend-card ${state}`;
+
+      const name = document.createElement("strong");
+      name.textContent = b.label;
+      const status = document.createElement("small");
+      status.textContent = !b.installed
+        ? `not installed — ${b.install_command}`
+        : (b.authenticated === true ? `connected · ${b.version || b.path}`
+          : b.key_present ? `API key found · ${b.version || ""}`
+          : `installed, login needed · ${b.version || ""}`);
+      card.append(name, status);
+
+      if (b.installed && b.authenticated !== true && !b.key_present) {
+        const login = document.createElement("button");
+        login.type = "button";
+        login.textContent = "LOGIN ↗";
+        login.title = `Opens Terminal: ${b.login_command}`;
+        login.addEventListener("click", async () => {
+          try {
+            const result = await postJSON("/api/backends/login",
+              { backend: b.backend });
+            alert(`Terminal opened with: ${result.launched}\n` +
+              "Finish the login there, then press CONNECT BACKENDS again.");
+          } catch (error) {
+            alert(error.message);
+          }
+        });
+        card.appendChild(login);
+      }
+      cardsBox.appendChild(card);
+    });
+  };
+
+  const connect = async () => {
+    connectButton.disabled = true;
+    connectButton.textContent = "⚡ SCANNING…";
+    try {
+      const response = await fetch("/api/backends");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "scan failed");
+      render(data.backends);
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      connectButton.disabled = false;
+      connectButton.textContent = "⚡ CONNECT BACKENDS";
+    }
+  };
+
+  connectButton.addEventListener("click", connect);
+  connect();   // auto-scan on page load
+}
+
 function installConnections() {
   const refreshButton = qs("#connections-refresh");
   if (!refreshButton) return;
@@ -709,6 +773,7 @@ document.addEventListener("DOMContentLoaded", () => {
   installCopyButtons();
   installConsoleNavigation();
   installChat();
+  installBackends();
   installConnections();
   installExamples();
   installFleetForm();

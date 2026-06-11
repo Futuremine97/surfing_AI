@@ -23,3 +23,6 @@ training/minGPT/
 training/data.txt
 *.pth
 .DS_Store
+
+# Private research code — never publish (leak guard also blocks)
+tt_codes/

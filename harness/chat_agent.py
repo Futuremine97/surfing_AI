@@ -62,6 +62,13 @@ SYSTEM_PROMPT = (
 )
 
 
+
+def _cli_error(name: str, proc) -> str:
+    """Meaningful error text even when stderr is empty (some CLIs print
+    failures to stdout)."""
+    detail = (proc.stderr or "").strip() or (proc.stdout or "").strip()
+    return f"{name} CLI exited {proc.returncode}: {detail[-400:] or '(no output)'}"
+
 class ChatError(ValueError):
     pass
 
@@ -213,7 +220,7 @@ class ChatAgent:
                                   text=True, timeout=timeout)
             if proc.returncode != 0:
                 raise RuntimeError(
-                    f"codex CLI exited {proc.returncode}: {proc.stderr[:300]}")
+                    _cli_error("codex", proc))
             reply = Path(last_message).read_text(encoding="utf-8").strip()
             if not reply:
                 reply = proc.stdout.strip()
@@ -237,7 +244,7 @@ class ChatAgent:
                               text=True, timeout=timeout)
         if proc.returncode != 0:
             raise RuntimeError(
-                f"gemini CLI exited {proc.returncode}: {proc.stderr[:300]}")
+                _cli_error("gemini", proc))
         reply = proc.stdout.strip()
         if not reply:
             raise RuntimeError("gemini CLI returned no result text")
@@ -287,7 +294,7 @@ class ChatAgent:
             capture_output=True, text=True, timeout=timeout)
         if proc.returncode != 0:
             raise RuntimeError(
-                f"claude CLI exited {proc.returncode}: {proc.stderr[:300]}")
+                _cli_error("claude", proc))
         data = json.loads(proc.stdout)
         reply = data.get("result") if isinstance(data, dict) else None
         if not reply:
