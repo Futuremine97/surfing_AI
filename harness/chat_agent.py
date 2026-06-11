@@ -6,14 +6,19 @@ handle the request), a command risk scan when the text looks like shell,
 and an outbound privacy gate — text matching the restricted-term
 blocklist never leaves the machine.
 
-Uses the Anthropic API when ANTHROPIC_API_KEY is set (stdlib urllib, no
-SDK required). Falls back to a deterministic offline assistant otherwise.
+Backend auto-detection, in order:
+  1. ANTHROPIC_API_KEY (environment or gitignored .env) -> Anthropic API
+  2. Claude Code CLI on PATH -> uses your existing Claude subscription
+     login (claude -p, headless mode)
+  3. Deterministic offline assistant
 """
 
 from __future__ import annotations
 
 import json
 import os
+import shutil
+import subprocess
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -30,6 +35,7 @@ API_URL = "https://api.anthropic.com/v1/messages"
 API_VERSION = "2023-06-01"
 DEFAULT_MODEL = os.environ.get("SURFING_CHAT_MODEL", "claude-sonnet-4-6")
 API_KEY_ENV = "ANTHROPIC_API_KEY"
+CLI_TIMEOUT = 180
 MAX_MESSAGES = 40
 MAX_CHARS_PER_MESSAGE = 20_000
 
@@ -115,6 +121,36 @@ class ChatAgent:
 
     # ---- backends ------------------------------------------------------
 
+    @staticmethod
+    def _find_claude_cli() -> str | None:
+        """Claude Code CLI, if installed and on PATH."""
+        return shutil.which("claude")
+
+    def _call_claude_cli(self, cli: str, messages: list[dict]) -> str:
+        """Headless call through Claude Code — reuses the user's existing
+        Claude subscription login; no API key required."""
+        lines = []
+        for m in messages[:-1]:
+            speaker = "User" if m["role"] == "user" else "Assistant"
+            lines.append(f"{speaker}: {m['content']}")
+        transcript = "\n".join(lines)
+        prompt = messages[-1]["content"]
+        if transcript:
+            prompt = (f"Conversation so far:\n{transcript}\n\n"
+                      f"User: {prompt}")
+        proc = subprocess.run(
+            [cli, "-p", prompt, "--output-format", "json",
+             "--append-system-prompt", SYSTEM_PROMPT],
+            capture_output=True, text=True, timeout=CLI_TIMEOUT)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"claude CLI exited {proc.returncode}: {proc.stderr[:300]}")
+        data = json.loads(proc.stdout)
+        reply = data.get("result") if isinstance(data, dict) else None
+        if not reply:
+            raise RuntimeError("claude CLI returned no result text")
+        return str(reply)
+
     def _call_model(self, messages: list[dict]) -> str:
         api_key = self._api_key()
         body = json.dumps({
@@ -187,11 +223,27 @@ class ChatAgent:
                 return {"reply": reply, "mode": "offline_fallback",
                         "analysis": analysis, "model": self.model}
 
+        cli = self._find_claude_cli()
+        if cli:
+            try:
+                reply = self._call_claude_cli(cli, messages)
+                return {"reply": reply, "mode": "claude_subscription",
+                        "analysis": analysis, "model": "claude-code-cli"}
+            except (RuntimeError, OSError, subprocess.TimeoutExpired,
+                    json.JSONDecodeError) as exc:
+                reply = self._offline_reply(
+                    messages, analysis,
+                    f"Claude Code CLI was found but the call failed ({exc}); "
+                    "here is the local analysis instead. Try `claude` in a "
+                    "terminal to check your login.")
+                return {"reply": reply, "mode": "offline_fallback",
+                        "analysis": analysis, "model": "claude-code-cli"}
+
         reply = self._offline_reply(
             messages, analysis,
-            "No ANTHROPIC_API_KEY found, so I answered with the local "
-            "deterministic assistant. Set it as an environment variable or "
-            "put ANTHROPIC_API_KEY=... in the project's .env file, then "
-            "restart the server to chat with the full model.")
+            "No AI backend found, so I answered with the local "
+            "deterministic assistant. Either set ANTHROPIC_API_KEY (env or "
+            ".env file), or install and log in to Claude Code — it will be "
+            "auto-detected and use your Claude subscription.")
         return {"reply": reply, "mode": "offline",
                 "analysis": analysis, "model": None}
