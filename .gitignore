@@ -1,0 +1,16 @@
+# Private layer — never commit
+private/
+.private_release_blocklist.yaml
+reports/private_*
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+.venv/
+venv/
+
+# Local env
+.env
+*.local

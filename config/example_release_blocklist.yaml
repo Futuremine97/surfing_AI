@@ -1,0 +1,9 @@
+# EXAMPLE blocklist (synthetic). The real blocklist lives in
+# .private_release_blocklist.yaml at repo root and is gitignored.
+terms:
+  - internal-codename-orion
+  - project-falcon-notes
+  - unpublished-benchmark
+filename_patterns:
+  - orion_
+  - falcon_internal

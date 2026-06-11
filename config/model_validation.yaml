@@ -1,0 +1,25 @@
+# External validation configuration.
+# API keys are read from environment variables only — never stored here.
+reviewers:
+  - name: sonnet_smoke
+    model: claude-sonnet-4-6
+    role: practical smoke validation
+    api_key_env: ANTHROPIC_API_KEY
+  - name: opus_adversarial
+    model: claude-opus-4-8
+    role: adversarial / deep validation
+    api_key_env: ANTHROPIC_API_KEY
+policy:
+  send_full_repo: false          # only the compact validation bundle
+  require_at_least_one_pass: true
+  fallback: manual_prompts       # when no adapter/key is available
+bundle:
+  include:
+    - SKILL.md summary
+    - module list with one-line descriptions
+    - test suite summary (names + pass counts)
+    - synthetic demo output
+  exclude:
+    - raw logs
+    - private directories
+    - real experiment data
