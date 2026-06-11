@@ -74,6 +74,11 @@
             <textarea id="chat-input" rows="2" required placeholder="Message Surfing AI…  (Enter to send · Shift+Enter for newline)"></textarea>
             <button type="submit" id="chat-send">SEND ↗</button>
           </form>
+          <div class="chat-options">
+            <label><input type="checkbox" id="chat-agent-mode"> Agent mode <small>(read files &amp; web via Claude Code)</small></label>
+            <label><input type="checkbox" id="chat-allow-edits" disabled> Allow edits <small>(write files; auto-accepted)</small></label>
+            <input id="chat-work-dir" placeholder="Working folder (absolute path, optional)" disabled>
+          </div>
           <div class="chat-meta"><span class="data-badge" id="chat-mode-badge">MODE: —</span><span class="data-badge" id="chat-route-badge"></span></div>
         </div>
       </section>

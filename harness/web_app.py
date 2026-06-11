@@ -39,9 +39,18 @@ class WebAppService:
         self.chat_agent = ChatAgent(self.project_root)
 
     def chat(self, payload: dict) -> dict:
-        result = self.chat_agent.chat(payload.get("messages"))
+        work_dirs = payload.get("work_dirs", [])
+        if not isinstance(work_dirs, list):
+            raise ValueError("work_dirs must be a list")
+        result = self.chat_agent.chat(
+            payload.get("messages"),
+            agent_mode=bool(payload.get("agent_mode", False)),
+            allow_edits=bool(payload.get("allow_edits", False)),
+            work_dirs=work_dirs)
         self.trace.record("chat", "chat_agent", mode=result["mode"],
-                          model=result.get("model"))
+                          model=result.get("model"),
+                          agent_mode=result["analysis"].get("agent_mode"),
+                          allow_edits=result["analysis"].get("allow_edits"))
         return result
 
     def analyze(self, payload: dict) -> dict:

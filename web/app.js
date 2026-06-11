@@ -466,7 +466,16 @@ function installChat() {
   const input = qs("#chat-input");
   const sendButton = qs("#chat-send");
   const messagesBox = qs("#chat-messages");
+  const agentToggle = qs("#chat-agent-mode");
+  const editsToggle = qs("#chat-allow-edits");
+  const workDirInput = qs("#chat-work-dir");
   const history = [];
+
+  agentToggle.addEventListener("change", () => {
+    editsToggle.disabled = !agentToggle.checked;
+    workDirInput.disabled = !agentToggle.checked;
+    if (!agentToggle.checked) editsToggle.checked = false;
+  });
 
   const append = (role, text, label) => {
     const article = document.createElement("article");
@@ -496,7 +505,13 @@ function installChat() {
         `Thinking… ${seconds}s (local backends may take a couple of minutes)`;
     }, 1000);
     try {
-      const data = await postJSON("/api/chat", { messages: history });
+      const workDir = workDirInput.value.trim();
+      const data = await postJSON("/api/chat", {
+        messages: history,
+        agent_mode: agentToggle.checked,
+        allow_edits: editsToggle.checked,
+        work_dirs: workDir ? [workDir] : [],
+      });
       clearInterval(ticker);
       pending.querySelector("p").textContent = data.reply;
       history.push({ role: "assistant", content: data.reply });

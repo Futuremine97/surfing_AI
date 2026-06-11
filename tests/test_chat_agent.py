@@ -74,6 +74,62 @@ def test_no_backend_falls_back_offline(tmp_path):
     assert out["mode"] == "offline"
 
 
+def make_arg_echo_cli(tmp_path):
+    """Fake claude CLI that returns its own argv as the reply."""
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir(exist_ok=True)
+    fake_cli = fake_bin / "claude"
+    # pure sh so it runs under an isolated PATH (no python3 lookup);
+    # our argv contains no JSON-breaking characters
+    fake_cli.write_text(
+        "#!/bin/sh\n"
+        "printf '{\"result\": \"%s\"}\\n' \"$*\"\n")
+    fake_cli.chmod(0o755)
+    return fake_bin
+
+
+def test_agent_mode_grants_read_tools_only(tmp_path):
+    agent = offline_agent(tmp_path)
+    fake_bin = make_arg_echo_cli(tmp_path)
+    with isolated_path(fake_bin):
+        out = agent.chat([{"role": "user", "content": "read my files"}],
+                         agent_mode=True)
+    assert out["mode"] == "claude_agent"
+    assert "--allowedTools" in out["reply"]
+    assert "WebFetch" in out["reply"]
+    assert "Bash" not in out["reply"]          # shell never granted
+    assert "Edit" not in out["reply"]          # edits off by default
+    assert "acceptEdits" not in out["reply"]
+
+
+def test_agent_mode_with_edits_opt_in(tmp_path):
+    agent = offline_agent(tmp_path)
+    fake_bin = make_arg_echo_cli(tmp_path)
+    with isolated_path(fake_bin):
+        out = agent.chat([{"role": "user", "content": "fix my file"}],
+                         agent_mode=True, allow_edits=True)
+    assert "Edit" in out["reply"] and "acceptEdits" in out["reply"]
+    assert "Bash" not in out["reply"]
+
+
+def test_text_mode_grants_no_tools(tmp_path):
+    agent = offline_agent(tmp_path)
+    fake_bin = make_arg_echo_cli(tmp_path)
+    with isolated_path(fake_bin):
+        out = agent.chat([{"role": "user", "content": "hello"}])
+    assert "--allowedTools" not in out["reply"]
+
+
+def test_work_dir_must_exist_and_be_absolute(tmp_path):
+    agent = offline_agent(tmp_path)
+    with pytest.raises(ChatError):
+        agent.chat([{"role": "user", "content": "x"}],
+                   agent_mode=True, work_dirs=["relative/path"])
+    with pytest.raises(ChatError):
+        agent.chat([{"role": "user", "content": "x"}],
+                   agent_mode=True, work_dirs=[str(tmp_path / "nope")])
+
+
 def test_restricted_terms_never_sent_externally(tmp_path):
     (tmp_path / ".private_release_blocklist.yaml").write_text(
         "terms:\n  - internal-codename-orion\n")

@@ -36,7 +36,13 @@ API_VERSION = "2023-06-01"
 DEFAULT_MODEL = os.environ.get("SURFING_CHAT_MODEL", "claude-sonnet-4-6")
 API_KEY_ENV = "ANTHROPIC_API_KEY"
 CLI_TIMEOUT = 180
+AGENT_TIMEOUT = 600
 MAX_MESSAGES = 40
+
+# Read-only + web tools are safe to grant headlessly. Bash is never
+# granted from the chat surface — shell stays behind the safety barrier.
+AGENT_TOOLS_READ = "Read,Glob,Grep,WebFetch,WebSearch,TodoWrite"
+AGENT_TOOLS_EDIT = AGENT_TOOLS_READ + ",Edit,Write,MultiEdit,NotebookEdit"
 MAX_CHARS_PER_MESSAGE = 20_000
 
 SYSTEM_PROMPT = (
@@ -126,9 +132,28 @@ class ChatAgent:
         """Claude Code CLI, if installed and on PATH."""
         return shutil.which("claude")
 
-    def _call_claude_cli(self, cli: str, messages: list[dict]) -> str:
+    @staticmethod
+    def _resolve_work_dirs(work_dirs) -> list[Path]:
+        resolved = []
+        for raw in work_dirs or []:
+            path = Path(str(raw)).expanduser()
+            if not path.is_absolute():
+                raise ChatError(f"work_dir must be an absolute path: {raw}")
+            if not path.is_dir():
+                raise ChatError(f"work_dir does not exist: {raw}")
+            resolved.append(path.resolve())
+        return resolved
+
+    def _call_claude_cli(self, cli: str, messages: list[dict],
+                         agent_mode: bool = False,
+                         allow_edits: bool = False,
+                         work_dirs: list[Path] | None = None) -> str:
         """Headless call through Claude Code — reuses the user's existing
-        Claude subscription login; no API key required."""
+        Claude subscription login; no API key required.
+
+        agent_mode grants read-only file/web tools; allow_edits adds
+        write/edit tools with auto-accepted edits. Bash is never granted.
+        """
         lines = []
         for m in messages[:-1]:
             speaker = "User" if m["role"] == "user" else "Assistant"
@@ -138,10 +163,26 @@ class ChatAgent:
         if transcript:
             prompt = (f"Conversation so far:\n{transcript}\n\n"
                       f"User: {prompt}")
+
+        cmd = [cli, "-p", prompt, "--output-format", "json",
+               "--append-system-prompt", SYSTEM_PROMPT]
+        cwd = self.project_root
+        timeout = CLI_TIMEOUT
+        if agent_mode:
+            timeout = AGENT_TIMEOUT
+            tools = AGENT_TOOLS_EDIT if allow_edits else AGENT_TOOLS_READ
+            cmd += ["--allowedTools", tools]
+            if allow_edits:
+                cmd += ["--permission-mode", "acceptEdits"]
+            dirs = list(work_dirs or [])
+            if dirs:
+                cwd = dirs[0]
+                for extra in dirs[1:]:
+                    cmd += ["--add-dir", str(extra)]
+
         proc = subprocess.run(
-            [cli, "-p", prompt, "--output-format", "json",
-             "--append-system-prompt", SYSTEM_PROMPT],
-            capture_output=True, text=True, timeout=CLI_TIMEOUT)
+            cmd, cwd=str(cwd),
+            capture_output=True, text=True, timeout=timeout)
         if proc.returncode != 0:
             raise RuntimeError(
                 f"claude CLI exited {proc.returncode}: {proc.stderr[:300]}")
@@ -196,9 +237,13 @@ class ChatAgent:
 
     # ---- entry point ---------------------------------------------------
 
-    def chat(self, messages) -> dict:
+    def chat(self, messages, agent_mode: bool = False,
+             allow_edits: bool = False, work_dirs=None) -> dict:
         messages = _validate_messages(messages)
         analysis = self._analyze(messages)
+        resolved_dirs = self._resolve_work_dirs(work_dirs)
+        analysis["agent_mode"] = agent_mode
+        analysis["allow_edits"] = bool(agent_mode and allow_edits)
 
         privacy_hits = self._outbound_privacy_check(messages)
         if privacy_hits:
@@ -209,7 +254,9 @@ class ChatAgent:
             return {"reply": reply, "mode": "privacy_blocked",
                     "analysis": analysis, "model": None}
 
-        if self._api_key():
+        # Agent mode needs tool use, which only the CLI backend provides;
+        # the direct API path stays text-only.
+        if self._api_key() and not agent_mode:
             try:
                 reply = self._call_model(messages)
                 return {"reply": reply, "mode": "model",
@@ -226,8 +273,12 @@ class ChatAgent:
         cli = self._find_claude_cli()
         if cli:
             try:
-                reply = self._call_claude_cli(cli, messages)
-                return {"reply": reply, "mode": "claude_subscription",
+                reply = self._call_claude_cli(
+                    cli, messages, agent_mode=agent_mode,
+                    allow_edits=agent_mode and allow_edits,
+                    work_dirs=resolved_dirs)
+                mode = "claude_agent" if agent_mode else "claude_subscription"
+                return {"reply": reply, "mode": mode,
                         "analysis": analysis, "model": "claude-code-cli"}
             except (RuntimeError, OSError, subprocess.TimeoutExpired,
                     json.JSONDecodeError) as exc:
@@ -238,6 +289,15 @@ class ChatAgent:
                     "terminal to check your login.")
                 return {"reply": reply, "mode": "offline_fallback",
                         "analysis": analysis, "model": "claude-code-cli"}
+
+        if agent_mode:
+            reply = self._offline_reply(
+                messages, analysis,
+                "Agent mode needs the Claude Code CLI (file/web tools), "
+                "but it was not found on PATH. Install and log in to "
+                "Claude Code, then retry.")
+            return {"reply": reply, "mode": "offline",
+                    "analysis": analysis, "model": None}
 
         reply = self._offline_reply(
             messages, analysis,
