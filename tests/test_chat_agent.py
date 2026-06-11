@@ -130,6 +130,67 @@ def test_work_dir_must_exist_and_be_absolute(tmp_path):
                    agent_mode=True, work_dirs=[str(tmp_path / "nope")])
 
 
+def make_named_cli(fake_bin, name, reply_text):
+    cli = fake_bin / name
+    if name == "claude":
+        cli.write_text("#!/bin/sh\n"
+                       f"printf '{{\"result\": \"{reply_text}\"}}\\n'\n")
+    elif name == "codex":
+        # codex adapter reads the --output-last-message file
+        cli.write_text(
+            "#!/bin/sh\n"
+            "out=''\nprev=''\n"
+            "for a in \"$@\"; do\n"
+            "  [ \"$prev\" = '--output-last-message' ] && out=\"$a\"\n"
+            "  prev=\"$a\"\ndone\n"
+            f"[ -n \"$out\" ] && printf '{reply_text}' > \"$out\"\n"
+            f"printf '{reply_text}\\n'\n")
+    else:
+        cli.write_text(f"#!/bin/sh\nprintf '{reply_text}\\n'\n")
+    cli.chmod(0o755)
+
+
+def test_codex_backend_explicit(tmp_path):
+    agent = offline_agent(tmp_path)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    make_named_cli(fake_bin, "codex", "hello from codex")
+    with isolated_path(fake_bin):
+        out = agent.chat([{"role": "user", "content": "hi"}],
+                         backend="codex")
+    assert out["mode"] == "codex_subscription"
+    assert out["reply"] == "hello from codex"
+
+
+def test_gemini_backend_explicit(tmp_path):
+    agent = offline_agent(tmp_path)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    make_named_cli(fake_bin, "gemini", "hello from gemini")
+    with isolated_path(fake_bin):
+        out = agent.chat([{"role": "user", "content": "hi"}],
+                         backend="gemini")
+    assert out["mode"] == "gemini_subscription"
+    assert out["model"] == "gemini-cli"
+
+
+def test_auto_falls_through_to_next_subscription(tmp_path):
+    # only gemini installed -> auto should land on gemini
+    agent = offline_agent(tmp_path)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    make_named_cli(fake_bin, "gemini", "auto picked gemini")
+    with isolated_path(fake_bin):
+        out = agent.chat([{"role": "user", "content": "hi"}])
+    assert out["mode"] == "gemini_subscription"
+
+
+def test_unknown_backend_rejected(tmp_path):
+    agent = offline_agent(tmp_path)
+    with pytest.raises(ChatError):
+        agent.chat([{"role": "user", "content": "hi"}], backend="gpt99")
+
+
 def test_restricted_terms_never_sent_externally(tmp_path):
     (tmp_path / ".private_release_blocklist.yaml").write_text(
         "terms:\n  - internal-codename-orion\n")

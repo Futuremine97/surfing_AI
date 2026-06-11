@@ -508,6 +508,7 @@ function installChat() {
       const workDir = workDirInput.value.trim();
       const data = await postJSON("/api/chat", {
         messages: history,
+        backend: qs("#chat-backend").value,
         agent_mode: agentToggle.checked,
         allow_edits: editsToggle.checked,
         work_dirs: workDir ? [workDir] : [],
@@ -547,10 +548,77 @@ function installChat() {
   });
 }
 
+function installConnections() {
+  const refreshButton = qs("#connections-refresh");
+  if (!refreshButton) return;
+
+  const renderList = (selector, items, emptyText) => {
+    const box = qs(selector);
+    box.replaceChildren();
+    if (!items.length) {
+      const empty = document.createElement("p");
+      empty.className = "connection-empty";
+      empty.textContent = emptyText;
+      box.appendChild(empty);
+      return;
+    }
+    items.forEach((item) => {
+      const card = document.createElement("button");
+      card.type = "button";
+      card.className = `connection-item ${item.found === false ? "missing" : ""}`;
+      const title = document.createElement("strong");
+      title.textContent = item.name;
+      const runtime = document.createElement("i");
+      runtime.textContent = item.runtime.toUpperCase();
+      const detail = document.createElement("small");
+      detail.textContent = item.detail || item.path || "";
+      card.append(runtime, title, detail);
+      if (item.path) {
+        card.title = `Reveal: ${item.path}`;
+        card.addEventListener("click", async () => {
+          try {
+            await postJSON("/api/open", { path: item.path });
+          } catch (error) {
+            alert(error.message);
+          }
+        });
+      } else {
+        card.disabled = true;
+      }
+      box.appendChild(card);
+    });
+  };
+
+  const load = async () => {
+    refreshButton.disabled = true;
+    try {
+      const response = await fetch("/api/connections");
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "scan failed");
+      renderList("#conn-runtimes", data.runtimes, "No runtime CLIs found.");
+      renderList("#conn-mcps", data.mcp_servers, "No MCP servers configured.");
+      renderList("#conn-skills", data.skills, "No skills found.");
+      setText("#conn-runtime-count", String(data.runtimes.filter((r) => r.found).length) + " ACTIVE");
+      setText("#conn-mcp-count", String(data.mcp_servers.length));
+      setText("#conn-skill-count", String(data.skills.length));
+      setText("#connections-summary",
+        `${data.mcp_servers.length} MCP servers · ${data.skills.length} skills detected`);
+    } catch (error) {
+      setText("#connections-summary", `Scan failed: ${error.message}`);
+    } finally {
+      refreshButton.disabled = false;
+    }
+  };
+
+  refreshButton.addEventListener("click", load);
+  load();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   installCopyButtons();
   installConsoleNavigation();
   installChat();
+  installConnections();
   installExamples();
   installFleetForm();
   installAnalysisForm();

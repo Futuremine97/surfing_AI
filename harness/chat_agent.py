@@ -8,9 +8,13 @@ blocklist never leaves the machine.
 
 Backend auto-detection, in order:
   1. ANTHROPIC_API_KEY (environment or gitignored .env) -> Anthropic API
-  2. Claude Code CLI on PATH -> uses your existing Claude subscription
-     login (claude -p, headless mode)
-  3. Deterministic offline assistant
+     (text-only)
+  2. Claude Code CLI -> existing Claude subscription (claude -p)
+  3. Codex CLI -> existing ChatGPT subscription (codex exec)
+  4. Gemini CLI -> existing Google login, Antigravity companion (gemini -p)
+  5. Deterministic offline assistant
+
+A specific backend can also be requested explicitly.
 """
 
 from __future__ import annotations
@@ -19,6 +23,7 @@ import json
 import os
 import shutil
 import subprocess
+import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -43,6 +48,8 @@ MAX_MESSAGES = 40
 # granted from the chat surface — shell stays behind the safety barrier.
 AGENT_TOOLS_READ = "Read,Glob,Grep,WebFetch,WebSearch,TodoWrite"
 AGENT_TOOLS_EDIT = AGENT_TOOLS_READ + ",Edit,Write,MultiEdit,NotebookEdit"
+
+BACKENDS = ("auto", "claude", "codex", "gemini")
 MAX_CHARS_PER_MESSAGE = 20_000
 
 SYSTEM_PROMPT = (
@@ -133,6 +140,72 @@ class ChatAgent:
         return shutil.which("claude")
 
     @staticmethod
+    def _compose_prompt(messages: list[dict],
+                        include_system: bool = False) -> str:
+        lines = []
+        for m in messages[:-1]:
+            speaker = "User" if m["role"] == "user" else "Assistant"
+            lines.append(f"{speaker}: {m['content']}")
+        transcript = "\n".join(lines)
+        prompt = messages[-1]["content"]
+        if transcript:
+            prompt = f"Conversation so far:\n{transcript}\n\nUser: {prompt}"
+        if include_system:
+            prompt = SYSTEM_PROMPT + "\n\n" + prompt
+        return prompt
+
+    def _call_codex_cli(self, cli: str, messages: list[dict],
+                        agent_mode: bool = False, allow_edits: bool = False,
+                        work_dirs: list[Path] | None = None) -> str:
+        """Headless call through the Codex CLI — reuses the user's
+        existing ChatGPT subscription login."""
+        cwd = (work_dirs[0] if work_dirs else self.project_root)
+        sandbox = "workspace-write" if (agent_mode and allow_edits) \
+            else "read-only"
+        with tempfile.NamedTemporaryFile("r", suffix=".txt",
+                                         delete=False) as tmp:
+            last_message = tmp.name
+        cmd = [cli, "exec", "--skip-git-repo-check",
+               "--sandbox", sandbox,
+               "--output-last-message", last_message,
+               self._compose_prompt(messages, include_system=True)]
+        timeout = AGENT_TIMEOUT if agent_mode else CLI_TIMEOUT
+        try:
+            proc = subprocess.run(cmd, cwd=str(cwd), capture_output=True,
+                                  text=True, timeout=timeout)
+            if proc.returncode != 0:
+                raise RuntimeError(
+                    f"codex CLI exited {proc.returncode}: {proc.stderr[:300]}")
+            reply = Path(last_message).read_text(encoding="utf-8").strip()
+            if not reply:
+                reply = proc.stdout.strip()
+            if not reply:
+                raise RuntimeError("codex CLI returned no result text")
+            return reply
+        finally:
+            Path(last_message).unlink(missing_ok=True)
+
+    def _call_gemini_cli(self, cli: str, messages: list[dict],
+                         agent_mode: bool = False, allow_edits: bool = False,
+                         work_dirs: list[Path] | None = None) -> str:
+        """Headless call through the Gemini CLI (Antigravity companion) —
+        reuses the user's existing Google login."""
+        cwd = (work_dirs[0] if work_dirs else self.project_root)
+        cmd = [cli, "-p", self._compose_prompt(messages, include_system=True)]
+        if agent_mode and allow_edits:
+            cmd += ["--approval-mode", "auto_edit"]
+        timeout = AGENT_TIMEOUT if agent_mode else CLI_TIMEOUT
+        proc = subprocess.run(cmd, cwd=str(cwd), capture_output=True,
+                              text=True, timeout=timeout)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"gemini CLI exited {proc.returncode}: {proc.stderr[:300]}")
+        reply = proc.stdout.strip()
+        if not reply:
+            raise RuntimeError("gemini CLI returned no result text")
+        return reply
+
+    @staticmethod
     def _resolve_work_dirs(work_dirs) -> list[Path]:
         resolved = []
         for raw in work_dirs or []:
@@ -154,17 +227,8 @@ class ChatAgent:
         agent_mode grants read-only file/web tools; allow_edits adds
         write/edit tools with auto-accepted edits. Bash is never granted.
         """
-        lines = []
-        for m in messages[:-1]:
-            speaker = "User" if m["role"] == "user" else "Assistant"
-            lines.append(f"{speaker}: {m['content']}")
-        transcript = "\n".join(lines)
-        prompt = messages[-1]["content"]
-        if transcript:
-            prompt = (f"Conversation so far:\n{transcript}\n\n"
-                      f"User: {prompt}")
-
-        cmd = [cli, "-p", prompt, "--output-format", "json",
+        cmd = [cli, "-p", self._compose_prompt(messages),
+               "--output-format", "json",
                "--append-system-prompt", SYSTEM_PROMPT]
         cwd = self.project_root
         timeout = CLI_TIMEOUT
@@ -238,12 +302,16 @@ class ChatAgent:
     # ---- entry point ---------------------------------------------------
 
     def chat(self, messages, agent_mode: bool = False,
-             allow_edits: bool = False, work_dirs=None) -> dict:
+             allow_edits: bool = False, work_dirs=None,
+             backend: str = "auto") -> dict:
+        if backend not in BACKENDS:
+            raise ChatError(f"backend must be one of {BACKENDS}")
         messages = _validate_messages(messages)
         analysis = self._analyze(messages)
         resolved_dirs = self._resolve_work_dirs(work_dirs)
         analysis["agent_mode"] = agent_mode
         analysis["allow_edits"] = bool(agent_mode and allow_edits)
+        analysis["backend_requested"] = backend
 
         privacy_hits = self._outbound_privacy_check(messages)
         if privacy_hits:
@@ -254,56 +322,52 @@ class ChatAgent:
             return {"reply": reply, "mode": "privacy_blocked",
                     "analysis": analysis, "model": None}
 
-        # Agent mode needs tool use, which only the CLI backend provides;
-        # the direct API path stays text-only.
-        if self._api_key() and not agent_mode:
+        # Direct API path stays text-only; agent mode needs a CLI backend.
+        if (backend == "auto" and self._api_key() and not agent_mode):
             try:
                 reply = self._call_model(messages)
                 return {"reply": reply, "mode": "model",
                         "analysis": analysis, "model": self.model}
             except (urllib.error.URLError, urllib.error.HTTPError,
                     TimeoutError, json.JSONDecodeError) as exc:
-                reply = self._offline_reply(
-                    messages, analysis,
-                    f"The external model is unreachable ({exc}); "
-                    "here is the local analysis instead.")
-                return {"reply": reply, "mode": "offline_fallback",
-                        "analysis": analysis, "model": self.model}
+                analysis["api_error"] = str(exc)[:200]
+                # fall through to subscription CLIs
 
-        cli = self._find_claude_cli()
-        if cli:
+        callers = {
+            "claude": ("claude", self._call_claude_cli,
+                       "claude_subscription", "claude-code-cli"),
+            "codex": ("codex", self._call_codex_cli,
+                      "codex_subscription", "codex-cli"),
+            "gemini": ("gemini", self._call_gemini_cli,
+                       "gemini_subscription", "gemini-cli"),
+        }
+        order = list(callers) if backend == "auto" else [backend]
+        failures: list[str] = []
+        for key in order:
+            binary, call, mode, model = callers[key]
+            cli = shutil.which(binary)
+            if not cli:
+                failures.append(f"{binary}: CLI not found on PATH")
+                continue
             try:
-                reply = self._call_claude_cli(
-                    cli, messages, agent_mode=agent_mode,
-                    allow_edits=agent_mode and allow_edits,
-                    work_dirs=resolved_dirs)
-                mode = "claude_agent" if agent_mode else "claude_subscription"
+                reply = call(cli, messages, agent_mode=agent_mode,
+                             allow_edits=agent_mode and allow_edits,
+                             work_dirs=resolved_dirs)
+                if agent_mode:
+                    mode = f"{key}_agent"
                 return {"reply": reply, "mode": mode,
-                        "analysis": analysis, "model": "claude-code-cli"}
+                        "analysis": analysis, "model": model}
             except (RuntimeError, OSError, subprocess.TimeoutExpired,
                     json.JSONDecodeError) as exc:
-                reply = self._offline_reply(
-                    messages, analysis,
-                    f"Claude Code CLI was found but the call failed ({exc}); "
-                    "here is the local analysis instead. Try `claude` in a "
-                    "terminal to check your login.")
-                return {"reply": reply, "mode": "offline_fallback",
-                        "analysis": analysis, "model": "claude-code-cli"}
+                failures.append(f"{binary}: {str(exc)[:200]}")
 
-        if agent_mode:
-            reply = self._offline_reply(
-                messages, analysis,
-                "Agent mode needs the Claude Code CLI (file/web tools), "
-                "but it was not found on PATH. Install and log in to "
-                "Claude Code, then retry.")
-            return {"reply": reply, "mode": "offline",
-                    "analysis": analysis, "model": None}
-
+        notes = "\n".join(f"- {f}" for f in failures) or "- no backends tried"
         reply = self._offline_reply(
             messages, analysis,
-            "No AI backend found, so I answered with the local "
-            "deterministic assistant. Either set ANTHROPIC_API_KEY (env or "
-            ".env file), or install and log in to Claude Code — it will be "
-            "auto-detected and use your Claude subscription.")
+            "No AI backend succeeded, so I answered with the local "
+            "deterministic assistant.\nBackend status:\n" + notes +
+            "\nOptions: set ANTHROPIC_API_KEY (env or .env), or log in to "
+            "Claude Code / Codex / Gemini CLI — subscriptions are "
+            "auto-detected.")
         return {"reply": reply, "mode": "offline",
                 "analysis": analysis, "model": None}

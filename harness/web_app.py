@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 
 from . import __version__
 from .chat_agent import ChatAgent
+from .connections import scan_connections
 from .context_reducer import reduce_context
 from .coupled_approval_guard import CoupledApprovalState, evaluate
 from .multi_agent import build_orchestration_plan, runtime_catalog
@@ -37,6 +38,35 @@ class WebAppService:
         self.project_root = Path(project_root).resolve()
         self.trace = TraceStore()
         self.chat_agent = ChatAgent(self.project_root)
+        self._openable_paths: set[str] = set()
+
+    def connections(self, payload: dict | None = None) -> dict:
+        report = scan_connections(project_root=self.project_root)
+        self._openable_paths = report.paths()
+        return report.to_dict()
+
+    def open_path(self, payload: dict) -> dict:
+        """Reveal a previously listed path in the local file manager.
+        Only paths returned by the latest connections scan are allowed."""
+        import platform
+        import subprocess
+
+        target = str(payload.get("path", ""))
+        if target not in self._openable_paths:
+            raise ValueError("path is not in the latest connections scan")
+        path = Path(target)
+        if not path.exists():
+            raise ValueError("path no longer exists")
+        system = platform.system()
+        if system == "Darwin":
+            cmd = ["open", "-R", target] if path.is_file() else ["open", target]
+        elif system == "Linux":
+            cmd = ["xdg-open", str(path if path.is_dir() else path.parent)]
+        else:
+            raise ValueError(f"unsupported platform: {system}")
+        subprocess.run(cmd, timeout=10, check=False)
+        self.trace.record("connections", "open_path", path=target)
+        return {"opened": target}
 
     def chat(self, payload: dict) -> dict:
         work_dirs = payload.get("work_dirs", [])
@@ -46,7 +76,8 @@ class WebAppService:
             payload.get("messages"),
             agent_mode=bool(payload.get("agent_mode", False)),
             allow_edits=bool(payload.get("allow_edits", False)),
-            work_dirs=work_dirs)
+            work_dirs=work_dirs,
+            backend=str(payload.get("backend", "auto")))
         self.trace.record("chat", "chat_agent", mode=result["mode"],
                           model=result.get("model"),
                           agent_mode=result["analysis"].get("agent_mode"),
@@ -202,6 +233,9 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/runtimes":
             self._send_json({"runtimes": runtime_catalog()})
             return
+        if path == "/api/connections":
+            self._send_json(self.service.connections())
+            return
         if path in ("/download/surfing-ai.zip", "/download/harness.zip"):
             self._send_download()
             return
@@ -220,6 +254,7 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         routes = {
             "/api/chat": self.service.chat,
+            "/api/open": self.service.open_path,
             "/api/orchestrate": self.service.orchestrate,
             "/api/analyze": self.service.analyze,
             "/api/scan-command": self.service.scan_command,

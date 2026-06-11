@@ -34,6 +34,9 @@
         <button class="console-nav-item" type="button" data-panel-target="release">
           <span class="nav-icon">↑</span><span>Release check</span><kbd>6</kbd>
         </button>
+        <button class="console-nav-item" type="button" data-panel-target="connections">
+          <span class="nav-icon">⊕</span><span>Connections</span><kbd>7</kbd>
+        </button>
       </nav>
       <div class="sidebar-note">
         <span class="pulse-dot"></span>
@@ -75,7 +78,15 @@
             <button type="submit" id="chat-send">SEND ↗</button>
           </form>
           <div class="chat-options">
-            <label><input type="checkbox" id="chat-agent-mode"> Agent mode <small>(read files &amp; web via Claude Code)</small></label>
+            <label>Backend
+              <select id="chat-backend">
+                <option value="auto">Auto-detect</option>
+                <option value="claude">Claude (subscription)</option>
+                <option value="codex">Codex (ChatGPT subscription)</option>
+                <option value="gemini">Gemini / Antigravity</option>
+              </select>
+            </label>
+            <label><input type="checkbox" id="chat-agent-mode"> Agent mode <small>(read files &amp; web)</small></label>
             <label><input type="checkbox" id="chat-allow-edits" disabled> Allow edits <small>(write files; auto-accepted)</small></label>
             <input id="chat-work-dir" placeholder="Working folder (absolute path, optional)" disabled>
           </div>
@@ -264,6 +275,31 @@
         <div class="approval-result glass-panel" id="approval-result" hidden>
           <div class="approval-symbol" id="approval-symbol">✓</div>
           <div><small>GATE DECISION</small><h2 id="approval-status"></h2><p id="approval-reasons"></p></div>
+        </div>
+      </section>
+
+      <section class="console-panel" data-panel="connections">
+        <div class="panel-heading">
+          <div><span class="panel-number">06</span><div><small>CONNECTIONS</small><h1>Runtimes, MCP servers &amp; skills</h1></div></div>
+          <p>Everything detected on this machine. Click any card to reveal its file or folder in Finder.</p>
+        </div>
+        <div class="connections-toolbar">
+          <button type="button" id="connections-refresh">RESCAN ↻</button>
+          <span id="connections-summary"></span>
+        </div>
+        <div class="connections-grid">
+          <article class="glass-panel data-card">
+            <div class="data-card-head"><span>RUNTIME CLIS</span><b id="conn-runtime-count"></b></div>
+            <div class="connection-list" id="conn-runtimes"></div>
+          </article>
+          <article class="glass-panel data-card">
+            <div class="data-card-head"><span>MCP SERVERS</span><b id="conn-mcp-count"></b></div>
+            <div class="connection-list" id="conn-mcps"></div>
+          </article>
+          <article class="glass-panel data-card">
+            <div class="data-card-head"><span>SKILLS</span><b id="conn-skill-count"></b></div>
+            <div class="connection-list" id="conn-skills"></div>
+          </article>
         </div>
       </section>
 
