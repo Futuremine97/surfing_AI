@@ -13,6 +13,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 
+from . import __version__
 from .chat_agent import ChatAgent
 from .context_reducer import reduce_context
 from .coupled_approval_guard import CoupledApprovalState, evaluate
@@ -182,6 +183,9 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
                 {
                     "ok": True,
                     "service": "surfing-ai",
+                    "version": __version__,
+                    "features": ["chat", "fleet", "analyze", "command",
+                                 "approval", "release"],
                     "runtimes": [item["key"] for item in runtime_catalog()],
                 }
             )
