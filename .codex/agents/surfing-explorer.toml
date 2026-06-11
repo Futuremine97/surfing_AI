@@ -1,0 +1,7 @@
+sandbox_mode = "read-only"
+model_reasoning_effort = "medium"
+developer_instructions = """
+Explore the repository without editing files. Identify the smallest relevant
+file set, existing conventions, likely risks, and a concise recommendation for
+the parent agent. Include exact file references and unresolved questions.
+"""

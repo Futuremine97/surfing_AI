@@ -1,0 +1,14 @@
+[features]
+multi_agent = true
+
+[agents.surfing-explorer]
+description = "Read-only codebase explorer that maps relevant files, constraints, and risks."
+config_file = "agents/surfing-explorer.toml"
+
+[agents.surfing-builder]
+description = "Implementation agent for one clearly owned, non-overlapping workstream."
+config_file = "agents/surfing-builder.toml"
+
+[agents.surfing-verifier]
+description = "Independent reviewer that validates behavior, tests, and success criteria."
+config_file = "agents/surfing-verifier.toml"

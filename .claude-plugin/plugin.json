@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "verification-gated-harness",
+  "displayName": "Surfing AI Agent Router",
+  "version": "0.1.0",
+  "description": "Coordinates agent and subagent work with verification, safe execution, approval, and release gates.",
+  "author": {
+    "name": "Futuremine97",
+    "url": "https://github.com/Futuremine97"
+  },
+  "homepage": "https://github.com/Futuremine97/surfing_AI#readme",
+  "repository": "https://github.com/Futuremine97/surfing_AI",
+  "license": "Apache-2.0",
+  "keywords": [
+    "agent-routing",
+    "multi-agent",
+    "subagents",
+    "verification",
+    "safe-shell",
+    "release-guard"
+  ]
+}

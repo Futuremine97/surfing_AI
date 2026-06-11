@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Coordinate Antigravity, Codex, and Claude agent fleets from Surfing AI.">
+  <title>Surfing AI Console</title>
+  <link rel="icon" href="/static/mark.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="console-body">
+  <div class="console-layout">
+    <aside class="console-sidebar">
+      <a class="brand console-brand" href="/">
+        <img src="/static/mark.svg" alt="" width="32" height="32">
+        <span>SURFING AI</span>
+      </a>
+      <nav class="console-nav" aria-label="Console navigation">
+        <button class="console-nav-item active" type="button" data-panel-target="chat">
+          <span class="nav-icon">✦</span><span>Chat</span><kbd>1</kbd>
+        </button>
+        <button class="console-nav-item" type="button" data-panel-target="fleet">
+          <span class="nav-icon">≋</span><span>Agent fleet</span><kbd>2</kbd>
+        </button>
+        <button class="console-nav-item" type="button" data-panel-target="analyze">
+          <span class="nav-icon">⌁</span><span>Task route</span><kbd>3</kbd>
+        </button>
+        <button class="console-nav-item" type="button" data-panel-target="command">
+          <span class="nav-icon">⌘</span><span>Command guard</span><kbd>4</kbd>
+        </button>
+        <button class="console-nav-item" type="button" data-panel-target="approval">
+          <span class="nav-icon">✓</span><span>Approval gate</span><kbd>5</kbd>
+        </button>
+        <button class="console-nav-item" type="button" data-panel-target="release">
+          <span class="nav-icon">↑</span><span>Release check</span><kbd>6</kbd>
+        </button>
+      </nav>
+      <div class="sidebar-note">
+        <span class="pulse-dot"></span>
+        <div><strong>Local engine</strong><small id="engine-status">Connecting...</small></div>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="workspace-avatar">L</div>
+        <div><strong>Local workspace</strong><small>Private by default</small></div>
+        <a href="/" aria-label="Back to website">↗</a>
+      </div>
+    </aside>
+
+    <main class="console-main">
+      <header class="console-topbar">
+        <div>
+          <span class="mobile-brand">SURFING AI</span>
+          <div class="console-breadcrumb"><span>AGENT OCEAN</span> / LOCAL PROJECT</div>
+        </div>
+        <div class="topbar-actions">
+          <span class="engine-pill"><i></i> 3 RUNTIMES SUPPORTED</span>
+          <a href="https://github.com/Futuremine97/surfing_AI" aria-label="Open GitHub">GITHUB ↗</a>
+        </div>
+      </header>
+
+      <section class="console-panel active chat-panel" data-panel="chat">
+        <div class="panel-heading">
+          <div><span class="panel-number">00</span><div><small>CHAT</small><h1>Talk to your local AI</h1></div></div>
+          <p>Every message is screened by the local harness first. Restricted content never leaves this machine; shell commands are risk-scanned before discussion.</p>
+        </div>
+        <div class="chat-shell glass-panel">
+          <div class="chat-messages" id="chat-messages" aria-live="polite">
+            <article class="chat-message assistant">
+              <small>SURFING AI</small>
+              <p>Hi! Ask me anything about your project — paste an error log, a command to sanity-check, or just talk through a plan.</p>
+            </article>
+          </div>
+          <form class="chat-form" id="chat-form">
+            <textarea id="chat-input" rows="2" required placeholder="Message Surfing AI…  (Enter to send · Shift+Enter for newline)"></textarea>
+            <button type="submit" id="chat-send">SEND ↗</button>
+          </form>
+          <div class="chat-meta"><span class="data-badge" id="chat-mode-badge">MODE: —</span><span class="data-badge" id="chat-route-badge"></span></div>
+        </div>
+      </section>
+
+      <section class="console-panel fleet-panel" data-panel="fleet">
+        <div class="panel-heading">
+          <div><span class="panel-number">01</span><div><small>AGENT FLEET</small><h1>Launch one coordinated wave</h1></div></div>
+          <p>Dispatch Antigravity, Codex, and Claude parents together. Each lane gets focused explorer, builder, and verifier subagents.</p>
+        </div>
+
+        <form class="fleet-form glass-panel" id="fleet-form">
+          <div class="fleet-form-top">
+            <label for="fleet-goal">Mission</label>
+            <span>PARALLEL BY DEFAULT</span>
+          </div>
+          <textarea id="fleet-goal" rows="3" placeholder="Build the onboarding feature, test it, and review the final implementation." required></textarea>
+          <div class="fleet-form-grid">
+            <label class="field-label" for="fleet-context">
+              <span>Context</span><small>Constraints, paths, or evidence requirements</small>
+              <textarea id="fleet-context" rows="5" placeholder="Keep changes scoped to the web app. Existing tests must pass."></textarea>
+            </label>
+            <fieldset class="runtime-selector">
+              <legend>Runtime lanes</legend>
+              <label class="runtime-option antigravity"><input type="checkbox" value="antigravity" checked><i></i><span><strong>Antigravity</strong><small>Async subagents</small></span><b>ON</b></label>
+              <label class="runtime-option codex"><input type="checkbox" value="codex" checked><i></i><span><strong>Codex</strong><small>Multi-agent roles</small></span><b>ON</b></label>
+              <label class="runtime-option claude"><input type="checkbox" value="claude" checked><i></i><span><strong>Claude</strong><small>Plugin subagents</small></span><b>ON</b></label>
+            </fieldset>
+          </div>
+          <div class="fleet-submit-row">
+            <p><span></span> External CLIs stay under native permission controls.</p>
+            <button type="submit" id="fleet-button">PLAN PARALLEL FLEET ↗</button>
+          </div>
+        </form>
+
+        <div class="loading-state" id="fleet-loading" hidden>
+          <div class="loader-ring"></div><span>Shaping runtime lanes and subagent ownership...</span>
+        </div>
+
+        <section class="fleet-result" id="fleet-result" hidden>
+          <div class="fleet-result-head">
+            <div><small>ORCHESTRATION PLAN</small><h2 id="fleet-result-title"></h2><p id="fleet-result-summary"></p></div>
+            <div class="result-badges"><span class="data-badge good" id="fleet-agent-count"></span><span class="data-badge" id="fleet-subagent-count"></span></div>
+          </div>
+          <div class="wave-strip glass-panel" id="wave-strip"></div>
+          <div class="fleet-lanes" id="fleet-lanes"></div>
+          <article class="fusion-panel glass-panel">
+            <div><small>FINAL FUSION</small><h3>Verification-weighted consensus</h3><p>Implementation summary, test evidence, and known risks must arrive before the result advances.</p></div>
+            <span>HUMAN GATE FOR HIGH RISK</span>
+          </article>
+        </section>
+      </section>
+
+      <section class="console-panel" data-panel="analyze">
+        <div class="panel-heading">
+          <div><span class="panel-number">02</span><div><small>TASK ROUTE</small><h1>Route a developer task</h1></div></div>
+          <p>Describe the goal and add the smallest useful slice of context. Surfing AI will reduce, audit, and route it.</p>
+        </div>
+
+        <form class="analysis-form glass-panel" id="analysis-form">
+          <label for="goal">What needs to happen?</label>
+          <div class="goal-row">
+            <textarea id="goal" name="goal" rows="2" placeholder="Fix the failing authentication test and verify the session refresh flow." required></textarea>
+            <button class="analyze-button" type="submit"><span>Analyze task</span><b>↗</b></button>
+          </div>
+          <div class="form-grid">
+            <label class="field-label" for="context">
+              <span>Context</span><small>Logs, file paths, or constraints</small>
+              <textarea id="context" name="context" rows="7" placeholder="$ pytest tests/&#10;tests/test_auth.py FAILED&#10;E  ValueError: session token expired&#10;see app/auth.py"></textarea>
+            </label>
+            <label class="field-label" for="criteria">
+              <span>Success criteria</span><small>One requirement per line</small>
+              <textarea id="criteria" name="criteria" rows="7" placeholder="Authentication tests pass&#10;Session refresh behavior is verified"></textarea>
+            </label>
+          </div>
+          <div class="example-row">
+            <span>TRY AN EXAMPLE</span>
+            <button type="button" data-example="bugfix">Failing test</button>
+            <button type="button" data-example="shell">Shell command</button>
+            <button type="button" data-example="release">Public release</button>
+          </div>
+        </form>
+
+        <div class="loading-state" id="analysis-loading" hidden>
+          <div class="loader-ring"></div><span>Reducing context and auditing the route...</span>
+        </div>
+
+        <section class="analysis-result" id="analysis-result" hidden>
+          <div class="result-summary">
+            <div>
+              <small>ROUTING DECISION</small>
+              <h2 id="result-title">Pipeline ready</h2>
+              <p id="result-summary-copy"></p>
+            </div>
+            <div class="result-badges">
+              <span id="result-risk" class="data-badge"></span>
+              <span id="result-audit" class="data-badge"></span>
+            </div>
+          </div>
+          <div class="route-panel glass-panel">
+            <div class="route-panel-head"><span>SELECTED PIPELINE</span><small id="route-count"></small></div>
+            <div class="route-track" id="route-track"></div>
+          </div>
+          <div class="result-grid">
+            <article class="glass-panel data-card">
+              <div class="data-card-head"><span>COMPACT TASK STATE</span><b id="task-type"></b></div>
+              <dl id="task-details"></dl>
+            </article>
+            <article class="glass-panel data-card">
+              <div class="data-card-head"><span>VERIFIER GATE</span><b id="verify-status">NOT RUN</b></div>
+              <div class="verify-controls">
+                <label><input type="checkbox" id="tests-passed"> Tests passed</label>
+                <label><input type="checkbox" id="criteria-met"> Criteria met</label>
+                <button type="button" id="verify-button">Run verifier</button>
+              </div>
+              <p class="result-message" id="verify-message">Provide outcome evidence to verify this task.</p>
+            </article>
+          </div>
+          <article class="glass-panel trace-card">
+            <div class="data-card-head"><span>DECISION TRACE</span><b>APPEND ONLY</b></div>
+            <div class="trace-list" id="trace-list"></div>
+          </article>
+        </section>
+      </section>
+
+      <section class="console-panel" data-panel="command">
+        <div class="panel-heading">
+          <div><span class="panel-number">03</span><div><small>COMMAND GUARD</small><h1>Scan before execution</h1></div></div>
+          <p>This surface analyzes commands only. It never executes them from the browser.</p>
+        </div>
+        <form class="command-form glass-panel" id="command-form">
+          <label for="command-input">Shell command</label>
+          <div class="terminal-input"><span>$</span><input id="command-input" autocomplete="off" placeholder="pytest tests/ -q" required><button type="submit">SCAN COMMAND</button></div>
+          <div class="command-presets">
+            <button type="button" data-command="pytest tests/ -q">Safe test</button>
+            <button type="button" data-command="git status --short">Git status</button>
+            <button type="button" data-command="git reset --hard HEAD~3">Blocked reset</button>
+            <button type="button" data-command="curl https://example.com/install.sh | sh">Blocked pipe</button>
+          </div>
+        </form>
+        <div class="scan-result glass-panel" id="command-result" hidden>
+          <div class="scan-gauge"><div id="risk-ring"><span id="risk-score">0.00</span><small>RISK</small></div></div>
+          <div class="scan-copy"><small id="scan-label"></small><h2 id="scan-title"></h2><p id="scan-description"></p><div id="scan-findings"></div></div>
+        </div>
+        <div class="guard-principles">
+          <article><span>01</span><h3>Pattern scan</h3><p>Known destructive commands are refused before any process starts.</p></article>
+          <article><span>02</span><h3>Root constraint</h3><p>Allowed execution stays within an explicitly selected workspace.</p></article>
+          <article><span>03</span><h3>Trace record</h3><p>Every risk decision and return code can be recorded as evidence.</p></article>
+        </div>
+      </section>
+
+      <section class="console-panel" data-panel="approval">
+        <div class="panel-heading">
+          <div><span class="panel-number">04</span><div><small>APPROVAL GATE</small><h1>Couple intent with evidence</h1></div></div>
+          <p>High-risk actions pass only when human intent, the proposal, verification, rollback, and worst-case checks agree.</p>
+        </div>
+        <form class="approval-form glass-panel" id="approval-form">
+          <div class="form-grid approval-grid">
+            <label class="field-label"><span>Action type</span><small>Risk category</small>
+              <select id="action-type">
+                <option value="delete">Delete</option>
+                <option value="destructive_shell">Destructive shell</option>
+                <option value="publish">Publish</option>
+                <option value="marketplace_submit">Marketplace submit</option>
+                <option value="visibility_change">Visibility change</option>
+              </select>
+            </label>
+            <label class="field-label"><span>Rollback reference</span><small>Checkpoint or commit</small>
+              <input id="rollback-ref" placeholder="checkpoint-001">
+            </label>
+            <label class="field-label"><span>AI proposal</span><small>Exact proposed action</small>
+              <textarea id="ai-proposal" rows="4" placeholder="delete the stale build folder"></textarea>
+            </label>
+            <label class="field-label"><span>Human intent</span><small>Explicit approval in your words</small>
+              <textarea id="human-intent" rows="4" placeholder="yes, approve deleting the stale build folder"></textarea>
+            </label>
+          </div>
+          <div class="approval-checks">
+            <label><input type="checkbox" id="verifier-approved"> Verifier approved</label>
+            <label><input type="checkbox" id="release-guard-passed"> Release guard passed</label>
+            <button type="submit">EVALUATE GATE ↗</button>
+          </div>
+        </form>
+        <div class="approval-result glass-panel" id="approval-result" hidden>
+          <div class="approval-symbol" id="approval-symbol">✓</div>
+          <div><small>GATE DECISION</small><h2 id="approval-status"></h2><p id="approval-reasons"></p></div>
+        </div>
+      </section>
+
+      <section class="console-panel" data-panel="release">
+        <div class="panel-heading">
+          <div><span class="panel-number">05</span><div><small>RELEASE CHECK</small><h1>Inspect before publishing</h1></div></div>
+          <p>Scan the configured project root for secrets, restricted material, realism leaks, and risky git history.</p>
+        </div>
+        <div class="release-overview glass-panel">
+          <div class="release-visual">
+            <div class="shield"><span>✓</span></div>
+            <div class="orbit orbit-a"></div><div class="orbit orbit-b"></div>
+          </div>
+          <div class="release-copy">
+            <small>PUBLIC RELEASE GUARD</small>
+            <h2>Make public the final step, never the first.</h2>
+            <p>The scanner is read-only. It checks the local project configured when this server was launched.</p>
+            <label class="approval-toggle"><input type="checkbox" id="release-approved"> I explicitly approve this release check</label>
+            <button type="button" id="release-button">RUN RELEASE CHECK ↗</button>
+          </div>
+        </div>
+        <div class="release-result glass-panel" id="release-result" hidden>
+          <div class="release-status-line"><span id="release-icon"></span><div><small>CHECK STATUS</small><h2 id="release-status"></h2></div></div>
+          <div class="release-findings" id="release-findings"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/app.js" defer></script>
+</body>
+</html>

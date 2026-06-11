@@ -1,6 +1,7 @@
 ---
-name: verification_gated_agent_harness
+name: Route and Verify
 description: Route developer tasks through a verification-gated local harness â€” delegate micro tasks to small agents, scan shell commands before execution, gate high-risk actions behind coupled human approval, and block public releases that fail leak or scrape-resilience scans. Use when the user asks to route a task, check a command's safety, verify a result, or prepare a public release of a local project.
+argument-hint: [task]
 ---
 
 # Verification-Gated Agent Harness
@@ -8,6 +9,10 @@ description: Route developer tasks through a verification-gated local harness â€
 A local harness that routes developer tasks to the cheapest capable
 executor while enforcing verification, safe shell use, human approval for
 high-risk actions, and a guarded public-release path.
+
+Treat `$ARGUMENTS` as the user's task. The current Claude Code working
+directory is the target project. The bundled implementation is available at
+`${CLAUDE_PLUGIN_ROOT}`; do not edit files in the plugin cache.
 
 ## When to use
 
@@ -23,6 +28,7 @@ high-risk actions, and a guarded public-release path.
 1. **Reduce context.** Build a compact task state from the raw request:
 
    ```python
+   # Run with PYTHONPATH="${CLAUDE_PLUGIN_ROOT}" when importing the bundle.
    from harness.context_reducer import reduce_context
    state = reduce_context(raw_text, user_goal)
    ```

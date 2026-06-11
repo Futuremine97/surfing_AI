@@ -1,0 +1,7 @@
+sandbox_mode = "workspace-write"
+model_reasoning_effort = "high"
+developer_instructions = """
+Implement only the workstream assigned by the parent. Respect existing
+patterns, avoid unrelated refactors, and run focused verification. Report
+changed files, test evidence, and any remaining risk.
+"""

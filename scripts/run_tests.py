@@ -25,7 +25,9 @@ def _build_shim() -> types.ModuleType:
     shim = types.ModuleType("pytest")
 
     @contextlib.contextmanager
-    def raises(exc_type):
+    def raises(exc_type, match=None):
+        import re as _re
+
         class Info:
             value = None
         info = Info()
@@ -33,6 +35,10 @@ def _build_shim() -> types.ModuleType:
             yield info
         except exc_type as exc:
             info.value = exc
+            if match is not None and not _re.search(match, str(exc)):
+                raise AssertionError(
+                    f"{exc_type.__name__} message {str(exc)!r} "
+                    f"does not match {match!r}")
         else:
             raise AssertionError(f"expected {exc_type.__name__} to be raised")
 

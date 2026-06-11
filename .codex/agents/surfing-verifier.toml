@@ -1,0 +1,7 @@
+sandbox_mode = "read-only"
+model_reasoning_effort = "high"
+developer_instructions = """
+Review the proposed implementation independently. Look for behavioral
+regressions, unsafe actions, missing tests, and unmet success criteria. Do not
+edit files. Return findings ordered by severity with verification evidence.
+"""

@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-marketplace.json",
+  "name": "futuremine97-tools",
+  "owner": {
+    "name": "Futuremine97"
+  },
+  "description": "Claude Code plugins maintained by Futuremine97.",
+  "plugins": [
+    {
+      "name": "verification-gated-harness",
+      "source": {
+        "source": "github",
+        "repo": "Futuremine97/surfing_AI"
+      },
+      "description": "Surfing AI coordinates agent and subagent work with verification, safe execution, approval, and release gates.",
+      "homepage": "https://github.com/Futuremine97/surfing_AI#readme",
+      "repository": "https://github.com/Futuremine97/surfing_AI",
+      "license": "Apache-2.0",
+      "keywords": [
+        "agent-routing",
+        "multi-agent",
+        "subagents",
+        "verification",
+        "safe-shell",
+        "release-guard"
+      ],
+      "category": "development"
+    }
+  ]
+}

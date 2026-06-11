@@ -10,7 +10,16 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+dist/
 
 # Local env
 .env
 *.local
+
+# Training artifacts (never commit model weights or corpora)
+training/checkpoints/
+training/logs/
+training/minGPT/
+training/data.txt
+*.pth
+.DS_Store

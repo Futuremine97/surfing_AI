@@ -1,0 +1,8 @@
+# Nightly minGPT training configuration (synthetic defaults).
+model_type: gpt-mini
+vocab_size: 50257
+block_size: 128
+batch_size: 16
+learning_rate: 0.0003
+weight_decay: 0.1
+dataset_path: training/data.txt   # plain-text corpus; replace with yours

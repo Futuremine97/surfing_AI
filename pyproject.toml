@@ -1,8 +1,10 @@
 [project]
-name = "verification-gated-local-agent-harness"
+name = "surfing-ai-agent-router"
 version = "0.1.0"
-description = "A verification-gated local agent harness for routing developer tasks across small agents, coding agents, deterministic tools, reviewers, and human approval gates."
+description = "A local multi-agent router for coordinating Antigravity, Codex, and Claude with verification and approval gates."
 requires-python = ">=3.10"
+license = "Apache-2.0"
+authors = [{ name = "Sunghoon Park" }]
 dependencies = []
 
 [project.optional-dependencies]

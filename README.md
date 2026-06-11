@@ -1,75 +1,137 @@
-# Verification-Gated Local Agent Harness
+# Surfing AI
 
-A verification-gated local agent harness for routing developer tasks across
-small agents, coding agents, deterministic tools, reviewers, and human
-approval gates.
+Surfing AI coordinates Antigravity, Codex, and Claude agents in one local,
+verification-gated workflow. A parent agent owns the mission, independent
+explorer, builder, and verifier subagents run in parallel, and the final result
+advances only with evidence.
 
-This project focuses on token efficiency, safe local tool use, structured
-verification, and rollback-aware execution.
+## What ships
 
-All examples are synthetic. Private domain adapters, private research
-artifacts, real experiment logs, and unpublished benchmarks are
-intentionally excluded.
+- **Three native runtimes.** Antigravity plugin and skill, Codex project
+  multi-agent roles, and Claude Code plugin agents.
+- **Parallel orchestration.** The local console creates concurrent runtime
+  lanes with isolated explorer, builder, and verifier responsibilities.
+- **Verification gates.** Tests and success criteria must agree before an
+  implementation is accepted.
+- **Local safety.** Commands are scanned before execution, high-risk actions
+  require coupled human approval, and public releases pass leak and history
+  checks.
+- **Cross-platform download.** One ZIP includes launchers for macOS, Windows,
+  and Linux with no runtime package dependencies.
 
-## How it works
+All examples are synthetic. Private adapters, unpublished research artifacts,
+real experiment logs, and private benchmarks are intentionally excluded.
 
-```
-User request
-  -> context reduction      (raw context -> compact task state)
-  -> reduction audit        (is the compact state enough to decide?)
-  -> rule-based router      (small agent / coding agent / tool / human)
-  -> executor + safe shell  (risk scan, timeout, cwd constraint, trace)
-  -> verifier gate
-  -> coupled approval gate  (high-risk actions only)
-  -> trace store
-  -> public release guard   (when publishing is requested)
-```
-
-Key properties:
-
-- **Token efficiency.** Micro tasks (extract an error line, validate JSON,
-  rank files, summarize a diff) never reach an expensive model; a
-  deterministic small-agent layer handles them. Routing decisions are made
-  from a compact task state, never from raw logs.
-- **Reduction audit.** Before anything expensive runs, the harness checks
-  that the compact state and the raw context lead to the same routing
-  decision. If not, it gathers more targeted context cheaply and re-reduces.
-- **Safe shell.** Destructive command patterns are refused outright; every
-  command gets a risk scan, timeout, working-directory constraint, and a
-  trace record.
-- **Coupled approval for high-risk actions.** Deletion, visibility changes,
-  publication, and marketplace submission proceed only when human intent
-  matches the proposal, the verifier approves, a rollback checkpoint
-  exists, and a worst-case simulation finds nothing catastrophic.
-- **Public release guard.** Releases are blocked on secret findings,
-  restricted-term findings, scrape-resilience failures (including git
-  history), or missing user approval. Submission status is never claimed
-  without evidence.
-
-## Layout
-
-```
-harness/    core modules (state, reducer, router, gates, guards, trace)
-tests/      test suite (synthetic fixtures only)
-skills/verification_gated_agent_harness/   skill package
-scripts/    test runner, demo, external validation
-config/     validation config + example blocklist
-```
-
-## Quick start
+## Run locally
 
 ```bash
-python3 scripts/run_tests.py                       # run the test suite
-python3 skills/verification_gated_agent_harness/scripts/run_skill_demo.py
-python3 scripts/validate_skill_with_claude.py      # external review (optional)
+python3 scripts/run_tests.py
+python3 scripts/run_web.py --open
 ```
 
-No runtime dependencies; Python 3.10+. `pytest` and `pyyaml` are used when
-present but not required.
+Open:
 
-## Release policy
+- `http://127.0.0.1:4173/` - Surfing AI website
+- `http://127.0.0.1:4173/app` - interactive agent fleet console
+- `http://127.0.0.1:4173/download/surfing-ai.zip` - downloadable package
 
-`harness/public_release_guard.py` is the final gate. It must return
-`PUBLIC_RELEASE_PASS` — and a human must approve — before anything in this
-tree is published. The real blocklist lives in a gitignored file; only a
-synthetic example ships in `config/`.
+The browser console plans native runtime work but never silently starts an
+external agent CLI. Each runtime keeps its own sandbox, permissions, and
+approval flow.
+
+## Antigravity
+
+Install the bundled plugin from the checkout or downloaded ZIP:
+
+```bash
+agy plugin install integrations/antigravity
+```
+
+Invoke `/surfing-team`. The parent can define and asynchronously invoke
+explorer, builder, and verifier subagents. Active agents are visible in the
+subagent panel or `/agents`.
+
+The repository also includes a workspace skill at
+`.agents/skills/surfing-team/SKILL.md`.
+
+## Codex
+
+Open this trusted repository in Codex:
+
+```bash
+codex
+```
+
+`.codex/config.toml` enables multi-agent mode and registers:
+
+- `surfing-explorer`
+- `surfing-builder`
+- `surfing-verifier`
+
+Use `$surfing-team` or ask Codex to delegate independent work in parallel.
+`AGENTS.md` defines the shared evidence and ownership rules.
+
+## Claude Code
+
+Install from the repository marketplace:
+
+```text
+/plugin marketplace add Futuremine97/surfing_AI
+/plugin install verification-gated-harness@futuremine97-tools
+/reload-plugins
+```
+
+Equivalent terminal commands:
+
+```bash
+claude plugin marketplace add Futuremine97/surfing_AI
+claude plugin install verification-gated-harness@futuremine97-tools
+```
+
+Run:
+
+```text
+/verification-gated-harness:route-and-verify fix the failing tests
+```
+
+The plugin includes `surfing-explorer`, `surfing-builder`, and
+`surfing-verifier` agents. Claude subagents report to the parent; they do not
+spawn additional subagents.
+
+For local plugin development:
+
+```bash
+claude --plugin-dir .
+```
+
+## Download and release
+
+Build the curated ZIP:
+
+```bash
+python3 scripts/build_release.py
+```
+
+The archive intentionally excludes private material, Git history, caches, and
+editor metadata. Pushing a tag such as `v0.1.0` runs the release workflow,
+tests the project, and attaches `surfing-ai.zip` plus its SHA-256 checksum.
+
+## Architecture
+
+```text
+User mission
+  -> compact task state + reduction audit
+  -> Antigravity / Codex / Claude parent lanes
+  -> parallel explorer / builder / verifier subagents
+  -> verification-weighted evidence fusion
+  -> human approval for high-risk actions
+  -> trace + public release guard
+```
+
+Core modules live in `harness/`, runtime integrations in `.agents/`,
+`.codex/`, `agents/`, and `integrations/`, and the website in `web/`.
+
+## License
+
+Licensed under the [Apache License 2.0](LICENSE). Commercial use,
+modification, distribution, and private use are permitted under its terms.

@@ -1,0 +1,59 @@
+SURFING AI QUICK START
+======================
+
+Requirements
+------------
+
+Python 3.10 or newer. No runtime packages are required.
+
+macOS
+-----
+
+Double-click launch.command.
+
+If macOS blocks the first launch, right-click launch.command, choose Open,
+then confirm. You can also run:
+
+    ./launch.sh
+
+Windows
+-------
+
+Double-click launch.bat.
+
+Linux
+-----
+
+Run:
+
+    ./launch.sh
+
+Manual start
+------------
+
+From this folder:
+
+    python3 scripts/run_web.py --open
+
+The local website runs at http://127.0.0.1:4173/ and the product console at
+http://127.0.0.1:4173/app.
+
+The server binds to localhost only. The browser command guard analyzes
+commands but never executes them.
+
+Agent runtimes
+--------------
+
+Antigravity:
+
+    agy plugin install integrations/antigravity
+
+Codex:
+
+    Open this folder in Codex. The trusted project config enables multi-agent
+    mode and provides the $surfing-team skill.
+
+Claude:
+
+    claude plugin marketplace add Futuremine97/surfing_AI
+    claude plugin install verification-gated-harness@futuremine97-tools

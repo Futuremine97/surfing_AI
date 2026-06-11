@@ -49,7 +49,7 @@ def run_local_tests() -> tuple[bool, str]:
 
 
 def build_bundle(test_summary: str) -> str:
-    skill = (ROOT / "skills" / "verification_gated_agent_harness" /
+    skill = (ROOT / "skills" / "route-and-verify" /
              "SKILL.md").read_text(encoding="utf-8")
     modules = "\n".join(
         f"- harness/{p.name}" for p in sorted((ROOT / "harness").glob("*.py"))
