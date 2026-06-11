@@ -1044,3 +1044,9 @@ input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--lime); }
 .connection-item.missing { opacity: .45; }
 .connection-item:disabled { cursor: default; }
 .connection-empty { opacity: .5; font-size: 13px; }
+.chat-attachments { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px 0; }
+.attachment-chip { display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 6px 4px 12px; font-size: 12px; background: rgba(64, 232, 194, .06); }
+.attachment-chip b { font-weight: 500; }
+.attachment-chip button { border: 0; background: rgba(255,255,255,.1); color: inherit; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; line-height: 1; }
+#chat-attach { min-width: 48px; border: 1px solid var(--line); border-radius: 10px; background: rgba(255,255,255,.04); color: inherit; cursor: pointer; font-size: 17px; }
+#chat-attach:hover { border-color: var(--lime); }

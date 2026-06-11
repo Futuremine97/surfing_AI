@@ -77,7 +77,8 @@ class WebAppService:
             agent_mode=bool(payload.get("agent_mode", False)),
             allow_edits=bool(payload.get("allow_edits", False)),
             work_dirs=work_dirs,
-            backend=str(payload.get("backend", "auto")))
+            backend=str(payload.get("backend", "auto")),
+            attachments=payload.get("attachments"))
         self.trace.record("chat", "chat_agent", mode=result["mode"],
                           model=result.get("model"),
                           agent_mode=result["analysis"].get("agent_mode"),
@@ -279,7 +280,7 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
 
     def _read_json(self) -> dict:
         length = int(self.headers.get("Content-Length", "0"))
-        if length > 1_000_000:
+        if length > 5_000_000:  # allow multiple attached text files
             raise ValueError("request body is too large")
         raw = self.rfile.read(length)
         payload = json.loads(raw.decode("utf-8") or "{}")

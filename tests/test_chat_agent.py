@@ -191,6 +191,51 @@ def test_unknown_backend_rejected(tmp_path):
         agent.chat([{"role": "user", "content": "hi"}], backend="gpt99")
 
 
+def test_attachments_folded_into_prompt(tmp_path):
+    agent = offline_agent(tmp_path)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    args_file = tmp_path / "args.txt"
+    cli = fake_bin / "claude"
+    cli.write_text(
+        "#!/bin/sh\n"
+        f"printf '%s\\n' \"$@\" > {args_file}\n"
+        "printf '{\"result\": \"ok\"}\\n'\n")
+    cli.chmod(0o755)
+    with isolated_path(fake_bin):
+        out = agent.chat(
+            [{"role": "user", "content": "summarize the attached notes"}],
+            attachments=[{"name": "notes.md", "content": "alpha beta notes"},
+                         {"name": "plan.md", "content": "step one step two"}])
+    assert out["analysis"]["attachments"] == ["notes.md", "plan.md"]
+    assert out["reply"] == "ok"
+    sent = args_file.read_text()
+    assert "notes.md" in sent and "alpha beta notes" in sent
+    assert "plan.md" in sent and "step one step two" in sent
+
+
+def test_attachment_limits_enforced(tmp_path):
+    agent = offline_agent(tmp_path)
+    msg = [{"role": "user", "content": "x"}]
+    with pytest.raises(ChatError):
+        agent.chat(msg, attachments=[{"name": f"f{i}.md", "content": "x"}
+                                     for i in range(11)])
+    with pytest.raises(ChatError):
+        agent.chat(msg, attachments=[{"name": "big.md",
+                                      "content": "x" * 200_000}])
+
+
+def test_privacy_gate_scans_attachments(tmp_path):
+    (tmp_path / ".private_release_blocklist.yaml").write_text(
+        "terms:\n  - internal-codename-orion\n")
+    agent = offline_agent(tmp_path)
+    out = agent.chat(
+        [{"role": "user", "content": "summarize this"}],
+        attachments=[{"name": "leak.md",
+                      "content": "about internal-codename-orion"}])
+    assert out["mode"] == "privacy_blocked"
+
+
 def test_restricted_terms_never_sent_externally(tmp_path):
     (tmp_path / ".private_release_blocklist.yaml").write_text(
         "terms:\n  - internal-codename-orion\n")

@@ -73,7 +73,11 @@
               <p>Hi! Ask me anything about your project — paste an error log, a command to sanity-check, or just talk through a plan.</p>
             </article>
           </div>
+          <div class="chat-attachments" id="chat-attachments" hidden></div>
           <form class="chat-form" id="chat-form">
+            <button type="button" id="chat-attach" title="Attach text/markdown files as context">📎</button>
+            <input type="file" id="chat-file-input" multiple hidden
+              accept=".md,.markdown,.txt,.log,.json,.yaml,.yml,.toml,.csv,.py,.js,.ts,.sh">
             <textarea id="chat-input" rows="2" required placeholder="Message Surfing AI…  (Enter to send · Shift+Enter for newline)"></textarea>
             <button type="submit" id="chat-send">SEND ↗</button>
           </form>

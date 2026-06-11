@@ -43,6 +43,8 @@ API_KEY_ENV = "ANTHROPIC_API_KEY"
 CLI_TIMEOUT = 180
 AGENT_TIMEOUT = 600
 MAX_MESSAGES = 40
+MAX_ATTACHMENTS = 10
+MAX_ATTACHMENT_CHARS = 120_000
 
 # Read-only + web tools are safe to grant headlessly. Bash is never
 # granted from the chat surface — shell stays behind the safety barrier.
@@ -83,6 +85,42 @@ def _validate_messages(messages) -> list[dict]:
     if clean[-1]["role"] != "user":
         raise ChatError("last message must be from the user")
     return clean
+
+
+def _validate_attachments(attachments) -> list[dict]:
+    if not attachments:
+        return []
+    if not isinstance(attachments, list):
+        raise ChatError("attachments must be a list")
+    if len(attachments) > MAX_ATTACHMENTS:
+        raise ChatError(f"at most {MAX_ATTACHMENTS} attachments allowed")
+    clean = []
+    for item in attachments:
+        if not isinstance(item, dict):
+            raise ChatError("each attachment must be an object")
+        name = str(item.get("name", "")).strip() or "untitled"
+        content = str(item.get("content", ""))
+        if len(content) > MAX_ATTACHMENT_CHARS:
+            raise ChatError(
+                f"attachment '{name}' exceeds "
+                f"{MAX_ATTACHMENT_CHARS // 1000}KB of text")
+        clean.append({"name": name[:120], "content": content})
+    return clean
+
+
+def _fold_attachments(messages: list[dict],
+                      attachments: list[dict]) -> list[dict]:
+    """Append attached file contents to the final user message so every
+    downstream gate (privacy scan, backends) sees them as one unit."""
+    if not attachments:
+        return messages
+    blocks = []
+    for att in attachments:
+        blocks.append(f"[Attached file: {att['name']}]\n```\n"
+                      f"{att['content']}\n```")
+    folded = [dict(m) for m in messages]
+    folded[-1]["content"] += "\n\n" + "\n\n".join(blocks)
+    return folded
 
 
 class ChatAgent:
@@ -303,15 +341,18 @@ class ChatAgent:
 
     def chat(self, messages, agent_mode: bool = False,
              allow_edits: bool = False, work_dirs=None,
-             backend: str = "auto") -> dict:
+             backend: str = "auto", attachments=None) -> dict:
         if backend not in BACKENDS:
             raise ChatError(f"backend must be one of {BACKENDS}")
         messages = _validate_messages(messages)
+        attachments = _validate_attachments(attachments)
+        messages = _fold_attachments(messages, attachments)
         analysis = self._analyze(messages)
         resolved_dirs = self._resolve_work_dirs(work_dirs)
         analysis["agent_mode"] = agent_mode
         analysis["allow_edits"] = bool(agent_mode and allow_edits)
         analysis["backend_requested"] = backend
+        analysis["attachments"] = [a["name"] for a in attachments]
 
         privacy_hits = self._outbound_privacy_check(messages)
         if privacy_hits:

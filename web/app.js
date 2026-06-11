@@ -490,28 +490,82 @@ function installChat() {
     return article;
   };
 
+  // ---- attachments (multiple text/markdown files, read locally) ----
+  const attachButton = qs("#chat-attach");
+  const fileInput = qs("#chat-file-input");
+  const attachmentsBox = qs("#chat-attachments");
+  let attachments = [];
+
+  const renderAttachments = () => {
+    attachmentsBox.replaceChildren();
+    attachmentsBox.hidden = attachments.length === 0;
+    attachments.forEach((att, index) => {
+      const chip = document.createElement("span");
+      chip.className = "attachment-chip";
+      const label = document.createElement("b");
+      label.textContent = `${att.name} (${Math.ceil(att.content.length / 1024)}KB)`;
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.textContent = "×";
+      remove.addEventListener("click", () => {
+        attachments.splice(index, 1);
+        renderAttachments();
+      });
+      chip.append(label, remove);
+      attachmentsBox.appendChild(chip);
+    });
+  };
+
+  attachButton.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", async () => {
+    for (const file of fileInput.files) {
+      if (attachments.length >= 10) { alert("Up to 10 attachments."); break; }
+      if (file.size > 120 * 1024) {
+        alert(`${file.name}: exceeds 120KB text limit`);
+        continue;
+      }
+      attachments.push({ name: file.name, content: await file.text() });
+    }
+    fileInput.value = "";
+    renderAttachments();
+  });
+
+  // ---- concurrent sends: keep chatting while earlier requests run ----
+  let inFlight = 0;
+
   const send = async () => {
     const text = input.value.trim();
-    if (!text || sendButton.disabled) return;
+    if (!text) return;
     input.value = "";
-    append("user", text);
-    history.push({ role: "user", content: text });
-    sendButton.disabled = true;
+    const sentAttachments = attachments;
+    attachments = [];
+    renderAttachments();
+
+    const attachmentNote = sentAttachments.length
+      ? `\n📎 ${sentAttachments.map((a) => a.name).join(", ")}` : "";
+    append("user", text + attachmentNote);
+    const userMessage = { role: "user", content: text };
+    history.push(userMessage);
+    const snapshot = history.slice();
+
+    inFlight += 1;
+    sendButton.textContent = inFlight > 1 ? `SEND ↗ (${inFlight})` : "SEND ↗";
     const pending = append("assistant", "…", "SURFING AI");
     const startedAt = Date.now();
     const ticker = setInterval(() => {
       const seconds = Math.round((Date.now() - startedAt) / 1000);
       pending.querySelector("p").textContent =
-        `Thinking… ${seconds}s (local backends may take a couple of minutes)`;
+        `Thinking… ${seconds}s (you can keep sending messages meanwhile)`;
     }, 1000);
     try {
       const workDir = workDirInput.value.trim();
       const data = await postJSON("/api/chat", {
-        messages: history,
+        messages: snapshot,
         backend: qs("#chat-backend").value,
         agent_mode: agentToggle.checked,
         allow_edits: editsToggle.checked,
         work_dirs: workDir ? [workDir] : [],
+        attachments: sentAttachments,
       });
       clearInterval(ticker);
       pending.querySelector("p").textContent = data.reply;
@@ -529,9 +583,11 @@ function installChat() {
       clearInterval(ticker);
       pending.querySelector("p").textContent = `Error: ${error.message}`;
       pending.classList.add("error");
-      history.pop();
+      const where = history.indexOf(userMessage);
+      if (where !== -1) history.splice(where, 1);
     } finally {
-      sendButton.disabled = false;
+      inFlight -= 1;
+      sendButton.textContent = inFlight > 1 ? `SEND ↗ (${inFlight})` : "SEND ↗";
       input.focus();
     }
   };
