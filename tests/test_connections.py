@@ -46,6 +46,25 @@ def test_every_item_has_source_path_for_reveal(tmp_path):
     assert report.paths()
 
 
+def test_scan_finds_installed_claude_plugins(tmp_path):
+    home = fake_home(tmp_path)
+    (home / ".claude").mkdir(exist_ok=True)
+    (home / ".claude" / "settings.json").write_text(json.dumps({
+        "enabledPlugins": {
+            "verification-gated-harness@futuremine97-tools": True,
+            "old-plugin@some-marketplace": False,
+        }}))
+    cache = home / ".claude" / "plugins" / "cache" / "futuremine97-tools"
+    cache.mkdir(parents=True)
+    report = scan_connections(home=home, project_root=tmp_path / "proj")
+    plugins = {c.name: c for c in report.plugins}
+    assert "verification-gated-harness" in plugins
+    assert plugins["verification-gated-harness"].found
+    assert "futuremine97-tools" in plugins["verification-gated-harness"].detail
+    assert plugins["verification-gated-harness"].path  # clickable
+    assert not plugins["old-plugin"].found  # disabled shown dimmed
+
+
 def test_open_path_rejects_unlisted_paths(tmp_path):
     service = WebAppService(project_root=tmp_path)
     secret = tmp_path / "unrelated.txt"

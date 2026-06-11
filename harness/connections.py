@@ -48,15 +48,17 @@ class ConnectionReport:
     runtimes: list[Connection] = field(default_factory=list)
     mcp_servers: list[Connection] = field(default_factory=list)
     skills: list[Connection] = field(default_factory=list)
+    plugins: list[Connection] = field(default_factory=list)
 
     def paths(self) -> set[str]:
-        return {c.path for c in
-                self.runtimes + self.mcp_servers + self.skills if c.path}
+        return {c.path for c in (self.runtimes + self.mcp_servers
+                                 + self.skills + self.plugins) if c.path}
 
     def to_dict(self) -> dict:
         return {"runtimes": [asdict(c) for c in self.runtimes],
                 "mcp_servers": [asdict(c) for c in self.mcp_servers],
-                "skills": [asdict(c) for c in self.skills]}
+                "skills": [asdict(c) for c in self.skills],
+                "plugins": [asdict(c) for c in self.plugins]}
 
 
 def _read_json(path: Path) -> dict:
@@ -187,6 +189,53 @@ def _scan_skills(home: Path, project_root: Path) -> list[Connection]:
     return items
 
 
+def _plugin_path_guess(home: Path, marketplace: str, plugin: str) -> str:
+    candidates = [
+        home / ".claude" / "plugins" / "cache" / marketplace / plugin,
+        home / ".claude" / "plugins" / "cache" / marketplace,
+        home / ".claude" / "plugins" / "marketplaces" / marketplace,
+        home / ".claude" / "plugins",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return ""
+
+
+def _scan_claude_plugins(home: Path) -> list[Connection]:
+    """Installed Claude Code plugins: enabledPlugins in settings.json plus
+    marketplaces registered in plugins/config.json."""
+    items = []
+    settings = _read_json(home / ".claude" / "settings.json")
+    for key, enabled in (settings.get("enabledPlugins") or {}).items():
+        name, _, marketplace = key.partition("@")
+        items.append(Connection(
+            runtime="claude", kind="plugin", name=name,
+            detail=(f"marketplace: {marketplace or 'unknown'} · "
+                    f"{'enabled' if enabled else 'disabled'}"),
+            path=_plugin_path_guess(home, marketplace, name),
+            found=bool(enabled)))
+
+    config = _read_json(home / ".claude" / "plugins" / "config.json")
+    marketplaces = (config.get("marketplaces")
+                    or config.get("repositories") or {})
+    for marketplace in marketplaces:
+        items.append(Connection(
+            runtime="claude", kind="plugin", name=marketplace,
+            detail="marketplace",
+            path=_plugin_path_guess(home, marketplace, "")))
+
+    cache = home / ".claude" / "plugins" / "cache"
+    if cache.is_dir():
+        seen = {item.name for item in items}
+        for entry in sorted(cache.iterdir()):
+            if entry.is_dir() and entry.name not in seen:
+                items.append(Connection(
+                    runtime="claude", kind="plugin", name=entry.name,
+                    detail="cached marketplace", path=str(entry)))
+    return items
+
+
 def scan_connections(home: str | Path | None = None,
                      project_root: str | Path = ".") -> ConnectionReport:
     home = Path(home) if home else Path.home()
@@ -197,4 +246,5 @@ def scan_connections(home: str | Path | None = None,
                      + _scan_codex_mcp(home)
                      + _scan_gemini_mcp(home)),
         skills=_scan_skills(home, project_root),
+        plugins=_scan_claude_plugins(home),
     )

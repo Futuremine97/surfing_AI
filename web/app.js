@@ -598,11 +598,13 @@ function installConnections() {
       renderList("#conn-runtimes", data.runtimes, "No runtime CLIs found.");
       renderList("#conn-mcps", data.mcp_servers, "No MCP servers configured.");
       renderList("#conn-skills", data.skills, "No skills found.");
+      renderList("#conn-plugins", data.plugins || [], "No Claude Code plugins installed.");
       setText("#conn-runtime-count", String(data.runtimes.filter((r) => r.found).length) + " ACTIVE");
       setText("#conn-mcp-count", String(data.mcp_servers.length));
       setText("#conn-skill-count", String(data.skills.length));
+      setText("#conn-plugin-count", String((data.plugins || []).length));
       setText("#connections-summary",
-        `${data.mcp_servers.length} MCP servers · ${data.skills.length} skills detected`);
+        `${data.mcp_servers.length} MCP servers · ${data.skills.length} skills · ${(data.plugins || []).length} plugins detected`);
     } catch (error) {
       setText("#connections-summary", `Scan failed: ${error.message}`);
     } finally {
