@@ -53,11 +53,14 @@ class ReleaseReport:
 def scan_secrets(root: str | Path) -> list[str]:
     root = Path(root)
     findings = []
+    rules = plg.load_ignore_rules(root)
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root)
         if any(p in plg.SCAN_EXCLUDE_DIRS for p in rel.parts):
             continue
         if rel.name in plg.SCAN_EXCLUDE_FILES:
+            continue
+        if plg.is_ignored(rel, rules):
             continue
         if not (path.is_file() and path.suffix in plg.TEXT_SUFFIXES):
             continue

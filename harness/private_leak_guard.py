@@ -75,6 +75,45 @@ def load_blocklist(root: str | Path = ".") -> Blocklist:
     return Blocklist()
 
 
+@dataclass
+class IgnoreRules:
+    """Simple .gitignore subset: path prefixes, exact names, *.suffixes.
+    Paths git will never publish don't need publish-scanning; the ZIP
+    packager is allowlist-based and unaffected by this."""
+    prefixes: list[str] = field(default_factory=list)
+    names: set[str] = field(default_factory=set)
+    suffixes: set[str] = field(default_factory=set)
+
+
+def load_ignore_rules(root: str | Path) -> IgnoreRules:
+    rules = IgnoreRules()
+    gitignore = Path(root) / ".gitignore"
+    if not gitignore.is_file():
+        return rules
+    for raw in gitignore.read_text(encoding="utf-8",
+                                   errors="ignore").splitlines():
+        pattern = raw.strip()
+        if not pattern or pattern.startswith(("#", "!")):
+            continue
+        if pattern.startswith("*."):
+            rules.suffixes.add(pattern[1:])
+        elif "/" in pattern:
+            rules.prefixes.append(pattern.strip("/"))
+        else:
+            rules.names.add(pattern)
+    return rules
+
+
+def is_ignored(rel: Path, rules: IgnoreRules) -> bool:
+    posix = rel.as_posix()
+    for prefix in rules.prefixes:
+        if posix == prefix or posix.startswith(prefix + "/"):
+            return True
+    if rules.names & set(rel.parts):
+        return True
+    return rel.suffix in rules.suffixes
+
+
 def scan_text(text: str, terms: list[str]) -> list[tuple[str, int]]:
     """Case-insensitive scan; returns (term, line_number) pairs."""
     found = []
@@ -90,12 +129,15 @@ def scan_text(text: str, terms: list[str]) -> list[tuple[str, int]]:
 
 def scan_tree(root: str | Path, blocklist: Blocklist) -> list[Finding]:
     root = Path(root)
+    rules = load_ignore_rules(root)
     findings: list[Finding] = []
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root)
         if any(part in SCAN_EXCLUDE_DIRS for part in rel.parts):
             continue
         if rel.name in SCAN_EXCLUDE_FILES:
+            continue
+        if is_ignored(rel, rules):
             continue
         name_l = rel.name.lower()
         for pat in blocklist.filename_patterns:

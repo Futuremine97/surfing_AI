@@ -12,7 +12,8 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from .private_leak_guard import (Blocklist, Finding, load_blocklist,
+from .private_leak_guard import (Blocklist, Finding, is_ignored,
+                                 load_blocklist, load_ignore_rules,
                                  scan_tree, scan_text,
                                  SCAN_EXCLUDE_DIRS, TEXT_SUFFIXES)
 
@@ -39,9 +40,12 @@ class ScrapeScanReport:
 def scan_realism(root: Path) -> list[str]:
     """Flag example data that does not look synthetic."""
     findings = []
+    rules = load_ignore_rules(root)
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root)
         if any(p in SCAN_EXCLUDE_DIRS for p in rel.parts):
+            continue
+        if is_ignored(rel, rules):
             continue
         if not (path.is_file() and path.suffix in TEXT_SUFFIXES):
             continue
