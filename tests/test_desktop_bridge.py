@@ -149,6 +149,30 @@ def test_two_step_approval_deny(tmp_path):
         stop(bridge, server)
 
 
+def test_orchestrator_info_and_max_sessions(tmp_path):
+    from harness.process_orchestrator import max_processes
+    bridge, server, client = start_bridge(tmp_path)
+    try:
+        _, info = client.call("GET", "/api/orchestrator")
+        assert info["max_processes"] == max_processes()
+        assert info["open_sessions"] == 0
+        assert info["available"] == max_processes()
+
+        _, r = client.call("POST", "/api/orchestrator/max_sessions",
+                           {"mode": "local-only"})
+        assert len(r["created"]) == max_processes()
+
+        # idempotent: already at max, nothing new
+        _, r = client.call("POST", "/api/orchestrator/max_sessions",
+                           {"mode": "local-only"})
+        assert r["created"] == []
+
+        _, info = client.call("GET", "/api/orchestrator")
+        assert info["available"] == 0
+    finally:
+        stop(bridge, server)
+
+
 def test_ask_refused_fast_in_local_only(tmp_path):
     bridge, server, client = start_bridge(tmp_path)
     try:

@@ -22,10 +22,12 @@ class Counters:
 
 
 class AuditSession:
-    def __init__(self, project_root: str | Path = ".", mode: str = "private"):
+    def __init__(self, project_root: str | Path = ".", mode: str = "private",
+                 tag: str = ""):
         self.root = Path(project_root)
         stamp = time.strftime("%Y%m%d_%H%M%S")
-        self.dir = self.root / "reports" / f"surfing_ai_terminal_{stamp}"
+        name = f"surfing_ai_terminal_{stamp}" + (f"_{tag}" if tag else "")
+        self.dir = self.root / "reports" / name
         self.previews_dir = self.dir / "external_prompt_previews"
         self.previews_dir.mkdir(parents=True, exist_ok=True)
         self.mode = mode

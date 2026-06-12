@@ -259,6 +259,17 @@ class DesktopBridge:
                     rows = summarize_health(project_root=str(bridge.root))
                     return self._send(200, {"rows": rows,
                                             "text": format_health(rows)})
+                if parts == ["api", "orchestrator"]:
+                    from harness.process_orchestrator import max_processes
+                    open_sessions = [s for s in bridge.sessions.values()
+                                     if not s.closed]
+                    return self._send(200, {
+                        "cpu_count": __import__("os").cpu_count(),
+                        "max_processes": max_processes(),
+                        "open_sessions": len(open_sessions),
+                        "available": max(0, max_processes()
+                                         - len(open_sessions)),
+                    })
                 return self._send(404, {"error": "not found"})
 
             def do_POST(self):
@@ -273,6 +284,19 @@ class DesktopBridge:
                     mode = body.get("mode", DEFAULT_MODE)
                     result = self.server_create(mode)
                     return self._send(200, result)
+                if parts == ["api", "orchestrator", "max_sessions"]:
+                    from harness.process_orchestrator import max_processes
+                    mode = body.get("mode", DEFAULT_MODE)
+                    open_count = len([s for s in bridge.sessions.values()
+                                      if not s.closed])
+                    created = []
+                    for _ in range(max(0, max_processes() - open_count)):
+                        state = bridge.create_session(mode)
+                        if "error" in state:
+                            break
+                        created.append(state["id"])
+                    return self._send(200, {"created": created,
+                                            "max": max_processes()})
                 if len(parts) == 4 and parts[:2] == ["api", "sessions"]:
                     session = self._session(parts)
                     if session is None:

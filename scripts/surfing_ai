@@ -52,6 +52,19 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("backend-health",
                    help="backend health, safe vocabulary only")
 
+    p_max = sub.add_parser("max-procs",
+                           help="max-process grid: tmux panes, or "
+                                "headless parallel command runner")
+    p_max.add_argument("--panes", type=int, default=None,
+                       help="pane/worker count (default: cores - 1)")
+    p_max.add_argument("--mode", default="local-only",
+                       choices=["local-only", "redacted-external", "audit"])
+    p_max.add_argument("--root", default=str(ROOT))
+    p_max.add_argument("--dry-run", action="store_true")
+    p_max.add_argument("--run", nargs="+", metavar="CMD",
+                       help="headless: run these commands in parallel "
+                            "across N private terminals and exit")
+
     p_desk = sub.add_parser("desktop",
                             help="desktop bridge: localhost UI + JSON API")
     p_desk.add_argument("--root", default=str(ROOT))
@@ -109,6 +122,38 @@ def main(argv: list[str] | None = None) -> int:
         serve(root=args.root, host=args.host, port=args.port,
               token=args.token, open_browser=args.open)
         return 0
+
+    if args.command == "max-procs":
+        from harness.process_orchestrator import ParallelRunner, max_processes
+        count = args.panes or max_processes()
+        if args.run:
+            runner = ParallelRunner(root=args.root, mode=args.mode,
+                                    workers=count)
+            print(f"running {len(args.run)} command(s) across "
+                  f"{runner.workers} private terminal worker(s)")
+            for result in runner.run(args.run):
+                flag = "BLOCKED" if result["blocked"] else "ok"
+                print(f"[w{result['worker']}] ({flag}) "
+                      f"$ {result['command']}")
+                if result["output"]:
+                    print("    " + result["output"]
+                          .replace("\n", "\n    "))
+            totals = runner.aggregate_counters()
+            runner.close()
+            print(f"totals: {totals}")
+            return 1 if totals["files_sent_external"] else 0
+        from harness.tmux_adapter import launch_grid
+        result = launch_grid(root=args.root, panes=count, mode=args.mode,
+                             dry_run=args.dry_run)
+        for key, value in result.items():
+            if key == "manual_commands":
+                print("manual_commands:")
+                for command in value:
+                    print(f"  {command}")
+            else:
+                print(f"{key}: {value}")
+        return 0 if result["status"] in ("LAUNCHED", "DRY_RUN",
+                                         "TMUX_NOT_FOUND") else 1
 
     return 1
 

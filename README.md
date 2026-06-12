@@ -141,6 +141,8 @@ details.
 scripts/surfing_ai_terminal_private.sh        # local-only REPL (default)
 python3 scripts/surfing_ai terminal-private   # same
 python3 scripts/surfing_ai tmux-private       # 4-pane tmux workspace
+python3 scripts/surfing_ai max-procs          # one REPL per CPU core (tmux grid)
+python3 scripts/surfing_ai max-procs --run "cmd1" "cmd2"   # headless parallel
 python3 scripts/surfing_ai backend-health     # safe-vocabulary health check
 python3 scripts/surfing_ai approvals list     # approval queue
 ```

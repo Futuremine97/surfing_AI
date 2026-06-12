@@ -60,6 +60,50 @@ def build_tmux_commands(session: str = SESSION_NAME,
     return cmds
 
 
+def build_grid_commands(session: str, root: str | Path, panes: int,
+                        mode: str = "local-only") -> list[list[str]]:
+    """N-pane tiled grid, one private REPL per pane (max-process)."""
+    root = str(Path(root))
+    repl = f"python3 scripts/surfing_ai terminal-private --mode {mode}"
+    cmds = [["tmux", "new-session", "-d", "-s", session, "-c", root, repl]]
+    for _ in range(max(1, panes) - 1):
+        cmds.append(["tmux", "split-window", "-t", session, "-c", root,
+                     repl])
+        cmds.append(["tmux", "select-layout", "-t", session, "tiled"])
+    return cmds
+
+
+def launch_grid(session: str = "surfing_ai_grid", root: str | Path = ".",
+                panes: int | None = None, mode: str = "local-only",
+                dry_run: bool = False) -> dict:
+    """tmux tiled grid with one REPL per pane; TMUX_NOT_FOUND fallback
+    returns the manual one-terminal-per-window commands instead."""
+    from harness.process_orchestrator import (manual_terminal_commands,
+                                              max_processes)
+    count = panes or max_processes()
+    if not tmux_available():
+        return {"status": "TMUX_NOT_FOUND",
+                "message": "tmux is not installed; run these manually, "
+                           "one per terminal window",
+                "panes": count,
+                "manual_commands": manual_terminal_commands(count, mode)}
+
+    commands = build_grid_commands(session, root, count, mode)
+    if dry_run:
+        return {"status": "DRY_RUN", "panes": count,
+                "commands": [" ".join(shlex.quote(p) for p in c)
+                             for c in commands]}
+    for command in commands:
+        proc = subprocess.run(command, capture_output=True, text=True)
+        if proc.returncode != 0:
+            return {"status": "TMUX_ERROR",
+                    "command": " ".join(command),
+                    "stderr": proc.stderr.strip()[:300],
+                    "fallback": fallback_command()}
+    return {"status": "LAUNCHED", "session": session, "panes": count,
+            "attach_command": f"tmux attach -t {session}"}
+
+
 def launch(session: str = SESSION_NAME, root: str | Path = ".",
            mode: str = "local-only", attach: bool = True,
            dry_run: bool = False) -> dict:

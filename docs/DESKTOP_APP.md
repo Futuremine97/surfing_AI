@@ -126,3 +126,32 @@ the shell can find `scripts/surfing_ai`.
 | POST | `/api/sessions/<id>/decision` | `{approve}` | ask result |
 | POST | `/api/sessions/<id>/close` | – | finalizes audit summary |
 | GET | `/api/health` | – | safe-vocabulary backend health |
+| GET | `/api/orchestrator` | – | cpu_count, max_processes, open/available |
+| POST | `/api/orchestrator/max_sessions` | `{mode}` | fills up to max_processes sessions |
+
+## Pane splitting (right-click) and max processes
+
+Right-click any pane for the tmux/cmux-style menu: split right, split
+down (each spawns a new private session), turn the pane into an
+approvals or health pane, close the pane, or **⚡ fill max terminals**.
+The `⚡ max procs` toolbar button (and menu item) asks the bridge for
+`max_processes()` — CPU cores minus one, never below 1 — creates the
+missing sessions, and re-tiles the grid into a near-square layout. The
+status bar shows `procs open/max`.
+
+The same maximum-process budget drives all three frontends
+(`harness/process_orchestrator.py`):
+
+```bash
+# desktop app: ⚡ max procs button
+python3 scripts/surfing_ai max-procs            # tmux tiled grid, one REPL per core
+python3 scripts/surfing_ai max-procs --dry-run  # print the tmux commands
+python3 scripts/surfing_ai max-procs --run "pytest -q" "python3 scripts/run_tests.py"
+                                                # headless: parallel across N workers
+```
+
+Without tmux installed, `max-procs` prints `TMUX_NOT_FOUND` plus one
+manual command per terminal window. Every parallel worker is a full
+PrivateTerminal with its own tagged audit directory, so the allowlist,
+file guard, redaction, and `files_sent_external = 0` invariants hold at
+any parallelism.

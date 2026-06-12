@@ -15,23 +15,71 @@
          font: 13px var(--mono); height: 100vh;
          display: flex; flex-direction: column; overflow: hidden; }
 
-  /* tab bar */
-  #tabs { display: flex; align-items: center; gap: 4px;
-          padding: 6px 8px; background: var(--panel);
-          border-bottom: 1px solid var(--border); }
-  .tab { padding: 4px 10px; border: 1px solid var(--border);
-         border-radius: 6px; cursor: pointer; color: var(--dim);
-         user-select: none; white-space: nowrap; }
-  .tab.active { color: var(--text); border-color: var(--accent);
-                background: #1f2937; }
-  .tab .x { margin-left: 8px; color: var(--dim); }
-  .tab .x:hover { color: var(--red); }
-  #newtab { display: flex; gap: 4px; align-items: center; }
+  /* top bar */
+  #bar { display: flex; align-items: center; gap: 8px;
+         padding: 6px 10px; background: var(--panel);
+         border-bottom: 1px solid var(--border); }
   select, button { background: #21262d; color: var(--text);
                    border: 1px solid var(--border); border-radius: 6px;
                    font: inherit; padding: 4px 8px; cursor: pointer; }
   button:hover { border-color: var(--accent); }
+  #maxbtn { color: var(--yellow); }
   #brand { margin-left: auto; color: var(--dim); font-size: 11px; }
+  #hint { color: var(--dim); font-size: 11px; }
+
+  /* split tree */
+  #grid { flex: 1; display: flex; min-height: 0; min-width: 0; }
+  .split { display: flex; flex: 1; min-height: 0; min-width: 0; gap: 1px;
+           background: var(--border); }
+  .split.row { flex-direction: row; }
+  .split.col { flex-direction: column; }
+  .pane { flex: 1; background: var(--bg); display: flex;
+          flex-direction: column; min-height: 0; min-width: 0;
+          outline: 1px solid var(--border); }
+  .pane.focused { outline: 1px solid var(--accent); z-index: 1; }
+  .pane h2 { font-size: 11px; font-weight: 600; color: var(--dim);
+             text-transform: uppercase; letter-spacing: .08em;
+             padding: 4px 10px; background: var(--panel);
+             border-bottom: 1px solid var(--border); display: flex;
+             gap: 8px; align-items: center; cursor: default;
+             user-select: none; white-space: nowrap; overflow: hidden; }
+  .pane h2 .mode { color: var(--accent); text-transform: none; }
+  .body { flex: 1; overflow-y: auto; padding: 6px 10px;
+          white-space: pre-wrap; word-break: break-word; }
+
+  .line-input  { color: var(--accent); }
+  .line-result { color: var(--text); }
+  .line-info   { color: var(--dim); }
+  .line-blocked{ color: var(--red); }
+  form.repl { display: flex; border-top: 1px solid var(--border); }
+  form.repl .prompt { padding: 6px 0 6px 10px; color: var(--green); }
+  form.repl input { flex: 1; background: transparent; border: 0;
+                    outline: none; color: var(--text); font: inherit;
+                    padding: 6px 10px; min-width: 0; }
+
+  .approval-card { border: 1px solid var(--yellow); border-radius: 8px;
+                   padding: 10px; margin-bottom: 10px; }
+  .approval-card pre { white-space: pre-wrap; word-break: break-word;
+                       margin: 8px 0; max-height: 160px; overflow-y: auto; }
+  .approve { border-color: var(--green); color: var(--green); }
+  .deny    { border-color: var(--red); color: var(--red);
+             margin-left: 8px; }
+
+  .vocab-present, .vocab-ok { color: var(--green); }
+  .vocab-missing, .vocab-failed { color: var(--red); }
+  .vocab-not_configured { color: var(--yellow); }
+  .empty { color: var(--dim); padding: 14px; text-align: center; }
+
+  /* context menu */
+  #ctx { position: fixed; display: none; z-index: 99; min-width: 210px;
+         background: var(--panel); border: 1px solid var(--border);
+         border-radius: 8px; padding: 4px; box-shadow: 0 8px 24px #000a; }
+  #ctx .item { padding: 6px 12px; border-radius: 6px; cursor: pointer;
+               white-space: nowrap; }
+  #ctx .item:hover { background: #21262d; color: var(--accent); }
+  #ctx .sep { height: 1px; background: var(--border); margin: 4px 6px; }
+  #ctx .label { padding: 4px 12px; color: var(--dim); font-size: 10px;
+                text-transform: uppercase; letter-spacing: .08em; }
 
   /* status bar */
   #status { display: flex; gap: 16px; padding: 4px 10px; font-size: 11px;
@@ -39,86 +87,31 @@
             border-top: 1px solid var(--border); }
   #status .ok { color: var(--green); }
   #status .bad { color: var(--red); }
-
-  /* 4-pane grid */
-  #grid { flex: 1; display: grid; gap: 1px; background: var(--border);
-          grid-template-columns: 3fr 2fr; grid-template-rows: 3fr 2fr;
-          min-height: 0; }
-  .pane { background: var(--bg); display: flex; flex-direction: column;
-          min-height: 0; min-width: 0; }
-  .pane h2 { font-size: 11px; font-weight: 600; color: var(--dim);
-             text-transform: uppercase; letter-spacing: .08em;
-             padding: 6px 10px; background: var(--panel);
-             border-bottom: 1px solid var(--border); display: flex;
-             justify-content: space-between; align-items: center; }
-  .body { flex: 1; overflow-y: auto; padding: 8px 10px;
-          white-space: pre-wrap; word-break: break-word; }
-
-  /* repl */
-  .line-input  { color: var(--accent); }
-  .line-result { color: var(--text); }
-  .line-info   { color: var(--dim); }
-  .line-blocked{ color: var(--red); }
-  #replform { display: flex; border-top: 1px solid var(--border); }
-  #replform .prompt { padding: 8px 0 8px 10px; color: var(--green); }
-  #replin { flex: 1; background: transparent; border: 0; outline: none;
-            color: var(--text); font: inherit; padding: 8px 10px; }
-
-  /* approvals */
-  .approval-card { border: 1px solid var(--yellow); border-radius: 8px;
-                   padding: 10px; margin-bottom: 10px; }
-  .approval-card pre { white-space: pre-wrap; word-break: break-word;
-                       color: var(--text); margin: 8px 0; max-height: 180px;
-                       overflow-y: auto; }
-  .approve { border-color: var(--green); color: var(--green); }
-  .deny    { border-color: var(--red); color: var(--red); }
-
-  .vocab-present, .vocab-ok { color: var(--green); }
-  .vocab-missing, .vocab-failed { color: var(--red); }
-  .vocab-not_configured { color: var(--yellow); }
-  .empty { color: var(--dim); padding: 16px; text-align: center; }
 </style>
 </head>
 <body>
-  <div id="tabs">
-    <span id="tablist"></span>
-    <span id="newtab">
-      <select id="newmode">
-        <option value="local-only">local-only</option>
-        <option value="redacted-external">redacted-external</option>
-        <option value="audit">audit</option>
-      </select>
-      <button id="addbtn" title="new session">+ session</button>
-    </span>
+  <div id="bar">
+    <select id="newmode">
+      <option value="local-only">local-only</option>
+      <option value="redacted-external">redacted-external</option>
+      <option value="audit">audit</option>
+    </select>
+    <button id="addbtn">+ terminal</button>
+    <button id="maxbtn" title="fill the grid with one terminal per CPU core">⚡ max procs</button>
+    <span id="hint">right-click a pane to split / close / change type</span>
     <span id="brand">surfing_ai private desktop</span>
   </div>
 
-  <div id="grid">
-    <div class="pane" style="grid-row: span 2">
-      <h2>terminal <span id="modelabel"></span></h2>
-      <div class="body" id="repl"></div>
-      <form id="replform">
-        <span class="prompt">private&gt;</span>
-        <input id="replin" autocomplete="off" spellcheck="false"
-               placeholder=":help for commands">
-      </form>
-    </div>
-    <div class="pane">
-      <h2>approvals <span id="apprcount"></span></h2>
-      <div class="body" id="approvals"><div class="empty">none</div></div>
-    </div>
-    <div class="pane">
-      <h2>backend health
-        <button id="healthbtn" style="font-size:10px">refresh</button></h2>
-      <div class="body" id="health"><div class="empty">press refresh</div></div>
-    </div>
-  </div>
+  <div id="grid"></div>
+
+  <div id="ctx"></div>
 
   <div id="status">
     <span id="s-mode"></span>
     <span id="s-blocked"></span>
     <span id="s-external"></span>
     <span id="s-files"></span>
+    <span id="s-procs"></span>
     <span id="s-audit" style="margin-left:auto"></span>
   </div>
 
@@ -127,9 +120,6 @@
 const TOKEN = new URLSearchParams(location.search).get("token") || "";
 const HEADERS = { "Content-Type": "application/json",
                   "X-Bridge-Token": TOKEN };
-let tabs = [];          // [{id, mode, closed}]
-let active = null;      // session id
-let polling = null;
 
 async function api(path, method = "GET", body = null) {
   const res = await fetch(path, { method, headers: HEADERS,
@@ -137,137 +127,220 @@ async function api(path, method = "GET", body = null) {
   return res.json();
 }
 
-/* ---- tabs ---------------------------------------------------------- */
-function renderTabs() {
-  const el = document.getElementById("tablist");
-  el.innerHTML = "";
-  for (const t of tabs) {
-    const tab = document.createElement("span");
-    tab.className = "tab" + (t.id === active ? " active" : "");
-    tab.textContent = `#${t.id} ${t.mode}`;
-    const x = document.createElement("span");
-    x.className = "x"; x.textContent = "×";
-    x.onclick = async (e) => { e.stopPropagation(); await closeTab(t.id); };
-    tab.appendChild(x);
-    tab.onclick = () => { active = t.id; renderTabs(); refresh(); };
-    el.appendChild(tab);
+/* ================= split-tree layout ================= */
+let nextPid = 1;
+let layout = null;        // {type:'pane',pid} | {type:'split',dir,children}
+const panes = new Map();  // pid -> {kind:'terminal'|'approvals'|'health', session}
+let focused = null;       // pid
+const states = new Map(); // sessionId -> last state
+
+function newPane(kind, session = null) {
+  const pid = nextPid++;
+  panes.set(pid, { kind, session });
+  return { type: "pane", pid };
+}
+
+function findParent(node, pid, parent = null) {
+  if (node.type === "pane") return node.pid === pid ? parent : null;
+  for (const child of node.children) {
+    const hit = findParent(child, pid, node);
+    if (hit !== null) return hit;
   }
+  return null;
 }
 
-async function addTab() {
-  const mode = document.getElementById("newmode").value;
-  const state = await api("/api/sessions", "POST", { mode });
-  if (state.error) return alert(state.error);
-  tabs.push({ id: state.id, mode: state.mode, closed: false });
-  active = state.id;
-  renderTabs(); refresh();
+function findNode(node, pid) {
+  if (node.type === "pane") return node.pid === pid ? node : null;
+  for (const child of node.children) {
+    const hit = findNode(child, pid);
+    if (hit) return hit;
+  }
+  return null;
 }
 
-async function closeTab(id) {
-  await api(`/api/sessions/${id}/close`, "POST", {});
-  tabs = tabs.filter(t => t.id !== id);
-  if (active === id) active = tabs.length ? tabs[tabs.length - 1].id : null;
-  renderTabs(); refresh();
+function splitPane(pid, dir, newLeaf) {
+  const node = findNode(layout, pid);
+  if (!node) return;
+  const clone = { type: "pane", pid: node.pid };
+  node.type = "split"; node.dir = dir;
+  node.children = [clone, newLeaf];
+  delete node.pid;
+  renderLayout();
 }
 
-/* ---- panes ---------------------------------------------------------- */
-function renderState(s) {
-  document.getElementById("modelabel").textContent = `· ${s.mode}`;
-  const repl = document.getElementById("repl");
-  const stick = repl.scrollTop + repl.clientHeight >= repl.scrollHeight - 8;
-  repl.innerHTML = "";
-  for (const line of s.output) {
+async function removePane(pid) {
+  const info = panes.get(pid);
+  if (info && info.kind === "terminal" && info.session !== null) {
+    await api(`/api/sessions/${info.session}/close`, "POST", {});
+  }
+  panes.delete(pid);
+  if (layout.type === "pane" && layout.pid === pid) {
+    layout = null;
+  } else {
+    const parent = findParent(layout, pid);
+    if (parent) {
+      parent.children = parent.children.filter(
+        c => !(c.type === "pane" && c.pid === pid));
+      if (parent.children.length === 1) {
+        Object.assign(parent, parent.children[0]);
+        if (parent.type === "pane") delete parent.children;
+      }
+    }
+  }
+  if (focused === pid) focused = firstTerminalPid();
+  renderLayout();
+}
+
+function allPids(node = layout, out = []) {
+  if (!node) return out;
+  if (node.type === "pane") { out.push(node.pid); return out; }
+  node.children.forEach(c => allPids(c, out));
+  return out;
+}
+
+function firstTerminalPid() {
+  return allPids().find(pid => panes.get(pid).kind === "terminal") ?? null;
+}
+
+function buildTiled(pidList) {
+  // near-square grid: rows of row-splits inside one column split
+  const n = pidList.length;
+  const cols = Math.ceil(Math.sqrt(n));
+  const rows = [];
+  for (let i = 0; i < n; i += cols) {
+    const slice = pidList.slice(i, i + cols)
+      .map(pid => ({ type: "pane", pid }));
+    rows.push(slice.length === 1 ? slice[0]
+      : { type: "split", dir: "row", children: slice });
+  }
+  layout = rows.length === 1 ? rows[0]
+    : { type: "split", dir: "col", children: rows };
+}
+
+/* ================= rendering ================= */
+function renderLayout() {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  if (!layout) {
+    grid.innerHTML = '<div class="empty" style="margin:auto">' +
+      '+ terminal to start</div>';
+    return;
+  }
+  grid.appendChild(renderNode(layout));
+  refreshAll();
+}
+
+function renderNode(node) {
+  if (node.type === "split") {
+    const div = document.createElement("div");
+    div.className = `split ${node.dir}`;
+    node.children.forEach(c => div.appendChild(renderNode(c)));
+    return div;
+  }
+  return renderPane(node.pid);
+}
+
+function renderPane(pid) {
+  const info = panes.get(pid);
+  const div = document.createElement("div");
+  div.className = "pane" + (pid === focused ? " focused" : "");
+  div.dataset.pid = pid;
+  div.onmousedown = () => { if (focused !== pid) { focused = pid;
+    markFocus(); updateStatus(); } };
+  div.oncontextmenu = (e) => { e.preventDefault(); openMenu(e, pid); };
+
+  const h2 = document.createElement("h2");
+  if (info.kind === "terminal") {
+    h2.innerHTML = `terminal <span class="mode" id="ph-${pid}">` +
+      (info.session ? `#${info.session}` : "…") + `</span>`;
+    const out = document.createElement("div");
+    out.className = "body"; out.id = `out-${pid}`;
+    const form = document.createElement("form");
+    form.className = "repl";
+    form.innerHTML = `<span class="prompt">private&gt;</span>` +
+      `<input id="in-${pid}" autocomplete="off" spellcheck="false"` +
+      ` placeholder=":help">`;
+    form.onsubmit = (e) => { e.preventDefault(); submitLine(pid); };
+    div.append(h2, out, form);
+  } else if (info.kind === "approvals") {
+    h2.textContent = "approvals (focused session)";
+    const body = document.createElement("div");
+    body.className = "body"; body.id = `appr-${pid}`;
+    body.innerHTML = '<div class="empty">none</div>';
+    div.append(h2, body);
+  } else {
+    h2.innerHTML = `backend health <button id="hb-${pid}"
+      style="font-size:10px;margin-left:auto">refresh</button>`;
+    const body = document.createElement("div");
+    body.className = "body"; body.id = `health-${pid}`;
+    body.innerHTML = '<div class="empty">press refresh</div>';
+    div.append(h2, body);
+    setTimeout(() => {
+      const b = document.getElementById(`hb-${pid}`);
+      if (b) b.onclick = () => loadHealth(pid);
+    }, 0);
+  }
+  return div;
+}
+
+function markFocus() {
+  document.querySelectorAll(".pane").forEach(p =>
+    p.classList.toggle("focused", Number(p.dataset.pid) === focused));
+}
+
+function renderTerminal(pid, state) {
+  const out = document.getElementById(`out-${pid}`);
+  const head = document.getElementById(`ph-${pid}`);
+  if (!out) return;
+  if (head) head.textContent = `#${state.id} ${state.mode}`;
+  const stick = out.scrollTop + out.clientHeight >= out.scrollHeight - 8;
+  out.innerHTML = "";
+  for (const line of state.output) {
     const div = document.createElement("div");
     let cls = "line-" + line.kind;
     if (line.text.startsWith("BLOCKED")) cls = "line-blocked";
     div.className = cls;
     div.textContent = (line.kind === "input" ? "private> " : "") + line.text;
-    repl.appendChild(div);
+    out.appendChild(div);
   }
-  if (stick) repl.scrollTop = repl.scrollHeight;
-
-  const appr = document.getElementById("approvals");
-  appr.innerHTML = "";
-  if (s.pending) {
-    const card = document.createElement("div");
-    card.className = "approval-card";
-    const pre = document.createElement("pre");
-    pre.textContent = s.pending.preview;
-    const yes = document.createElement("button");
-    yes.className = "approve"; yes.textContent = "approve & send";
-    yes.onclick = () => decide(true);
-    const no = document.createElement("button");
-    no.className = "deny"; no.textContent = "deny (default)";
-    no.style.marginLeft = "8px";
-    no.onclick = () => decide(false);
-    card.append(pre, yes, no);
-    appr.appendChild(card);
-  } else if (!s.approvals_pending.length) {
-    appr.innerHTML = '<div class="empty">none</div>';
-  }
-  for (const r of s.approvals_pending) {
-    const div = document.createElement("div");
-    div.className = "line-info";
-    div.textContent = `#${r.id} ${r.label}`;
-    appr.appendChild(div);
-  }
-  document.getElementById("apprcount").textContent =
-    s.pending ? "⚠ waiting" : "";
-
-  const c = s.counters;
-  setStatus("s-mode", `mode=${s.mode}`);
-  setStatus("s-blocked", `blocked=${c.blocked_commands}`,
-            c.blocked_commands ? "bad" : "");
-  setStatus("s-external", `external_calls=${c.external_backend_calls}`);
-  setStatus("s-files", `files_sent_external=${c.files_sent_external}`,
-            c.files_sent_external === 0 ? "ok" : "bad");
-  setStatus("s-audit", s.audit_dir.split("/").slice(-1)[0]);
+  if (stick) out.scrollTop = out.scrollHeight;
 }
 
-function setStatus(id, text, cls = "") {
-  const el = document.getElementById(id);
-  el.textContent = text; el.className = cls;
+function renderApprovals() {
+  const state = focusedState();
+  document.querySelectorAll('[id^="appr-"]').forEach(el => {
+    el.innerHTML = "";
+    if (state && state.pending) {
+      const card = document.createElement("div");
+      card.className = "approval-card";
+      const pre = document.createElement("pre");
+      pre.textContent = state.pending.preview;
+      const yes = document.createElement("button");
+      yes.className = "approve"; yes.textContent = "approve & send";
+      yes.onclick = () => decide(state.id, true);
+      const no = document.createElement("button");
+      no.className = "deny"; no.textContent = "deny (default)";
+      no.onclick = () => decide(state.id, false);
+      card.append(pre, yes, no);
+      el.appendChild(card);
+    } else if (!state || !state.approvals_pending.length) {
+      el.innerHTML = '<div class="empty">none</div>';
+    }
+    if (state) {
+      for (const r of state.approvals_pending) {
+        const div = document.createElement("div");
+        div.className = "line-info";
+        div.textContent = `#${r.id} ${r.label}`;
+        el.appendChild(div);
+      }
+    }
+  });
 }
 
-async function refresh() {
-  if (active === null) {
-    document.getElementById("repl").innerHTML =
-      '<div class="empty">+ session to start</div>';
-    return;
-  }
-  const s = await api(`/api/sessions/${active}/state`);
-  if (!s.error) {
-    const tab = tabs.find(t => t.id === active);
-    if (tab) tab.mode = s.mode;
-    renderState(s);
-  }
-}
-
-async function decide(approve) {
-  await api(`/api/sessions/${active}/decision`, "POST", { approve });
-  refresh();
-}
-
-/* ---- input ----------------------------------------------------------- */
-document.getElementById("replform").onsubmit = async (e) => {
-  e.preventDefault();
-  if (active === null) return;
-  const input = document.getElementById("replin");
-  const line = input.value; input.value = "";
-  if (!line.trim()) return;
-  const r = await api(`/api/sessions/${active}/input`, "POST", { line });
-  if (r.status === "closed") {
-    tabs = tabs.filter(t => t.id !== active);
-    active = tabs.length ? tabs[tabs.length - 1].id : null;
-    renderTabs();
-  }
-  refresh();
-};
-
-document.getElementById("addbtn").onclick = addTab;
-document.getElementById("healthbtn").onclick = async () => {
+async function loadHealth(pid) {
   const h = await api("/api/health");
-  const el = document.getElementById("health");
+  const el = document.getElementById(`health-${pid}`);
+  if (!el) return;
   el.innerHTML = "";
   for (const row of h.rows) {
     const div = document.createElement("div");
@@ -278,17 +351,203 @@ document.getElementById("healthbtn").onclick = async () => {
       `${row.api_key}</span>`;
     el.appendChild(div);
   }
-};
+}
 
-/* ---- boot ------------------------------------------------------------ */
+function focusedState() {
+  const info = focused !== null ? panes.get(focused) : null;
+  if (!info || info.kind !== "terminal" || info.session === null)
+    return null;
+  return states.get(info.session) || null;
+}
+
+function setStatus(id, text, cls = "") {
+  const el = document.getElementById(id);
+  el.textContent = text; el.className = cls;
+}
+
+async function updateStatus() {
+  const s = focusedState();
+  if (s) {
+    const c = s.counters;
+    setStatus("s-mode", `mode=${s.mode}`);
+    setStatus("s-blocked", `blocked=${c.blocked_commands}`,
+              c.blocked_commands ? "bad" : "");
+    setStatus("s-external", `external_calls=${c.external_backend_calls}`);
+    setStatus("s-files", `files_sent_external=${c.files_sent_external}`,
+              c.files_sent_external === 0 ? "ok" : "bad");
+    setStatus("s-audit", s.audit_dir.split("/").slice(-1)[0]);
+  }
+  const o = await api("/api/orchestrator").catch(() => null);
+  if (o && o.max_processes)
+    setStatus("s-procs",
+              `procs ${o.open_sessions}/${o.max_processes}`,
+              o.open_sessions > o.max_processes ? "bad" : "");
+}
+
+/* ================= actions ================= */
+async function createSession(mode) {
+  const state = await api("/api/sessions", "POST",
+    { mode: mode || document.getElementById("newmode").value });
+  if (state.error) { alert(state.error); return null; }
+  states.set(state.id, state);
+  return state.id;
+}
+
+async function addTerminalPane(splitTarget = null, dir = "row") {
+  const sid = await createSession();
+  if (sid === null) return;
+  const leaf = newPane("terminal", sid);
+  focused = leaf.pid;
+  if (!layout) { layout = leaf; renderLayout(); return; }
+  splitPane(splitTarget ?? focused ?? allPids()[0], dir, leaf);
+}
+
+async function submitLine(pid) {
+  const info = panes.get(pid);
+  const input = document.getElementById(`in-${pid}`);
+  const line = input.value; input.value = "";
+  if (!line.trim() || info.session === null) return;
+  const r = await api(`/api/sessions/${info.session}/input`, "POST",
+                      { line });
+  if (r.status === "closed") { await removePane(pid); return; }
+  await refreshSession(info.session);
+  renderApprovals(); updateStatus();
+}
+
+async function decide(sessionId, approve) {
+  await api(`/api/sessions/${sessionId}/decision`, "POST", { approve });
+  await refreshSession(sessionId);
+  renderApprovals(); updateStatus();
+}
+
+async function refreshSession(sessionId) {
+  const s = await api(`/api/sessions/${sessionId}/state`);
+  if (s.error) return;
+  states.set(sessionId, s);
+  for (const pid of allPids()) {
+    const info = panes.get(pid);
+    if (info.kind === "terminal" && info.session === sessionId)
+      renderTerminal(pid, s);
+  }
+}
+
+async function refreshAll() {
+  const seen = new Set();
+  for (const pid of allPids()) {
+    const info = panes.get(pid);
+    if (info.kind === "terminal" && info.session !== null
+        && !seen.has(info.session)) {
+      seen.add(info.session);
+      await refreshSession(info.session);
+    }
+  }
+  renderApprovals(); updateStatus();
+}
+
+async function fillMax() {
+  const mode = document.getElementById("newmode").value;
+  const r = await api("/api/orchestrator/max_sessions", "POST", { mode });
+  if (r.error) return alert(r.error);
+  for (const sid of r.created) {
+    const s = await api(`/api/sessions/${sid}/state`);
+    if (!s.error) states.set(sid, s);
+    newPaneForSession(sid);
+  }
+  const termPids = allPids().filter(
+    pid => panes.get(pid).kind === "terminal");
+  const extras = [...panes.keys()].filter(pid => !termPids.includes(pid)
+    && panes.get(pid).kind === "terminal");
+  buildTiled(termPids.concat(extras));
+  focused = firstTerminalPid();
+  renderLayout();
+}
+
+function newPaneForSession(sid) {
+  const pid = nextPid++;
+  panes.set(pid, { kind: "terminal", session: sid });
+  if (!layout) layout = { type: "pane", pid };
+  else {
+    // attach temporarily; buildTiled() re-tiles right after
+    const parent = layout.type === "split" ? layout
+      : (layout = { type: "split", dir: "row", children: [layout] });
+    parent.children.push({ type: "pane", pid });
+  }
+  return pid;
+}
+
+/* ================= context menu ================= */
+const ctx = document.getElementById("ctx");
+
+function menuItem(label, fn) {
+  const div = document.createElement("div");
+  div.className = "item"; div.textContent = label;
+  div.onclick = () => { hideMenu(); fn(); };
+  return div;
+}
+
+function openMenu(event, pid) {
+  focused = pid; markFocus(); updateStatus();
+  ctx.innerHTML = "";
+  const label = document.createElement("div");
+  label.className = "label";
+  label.textContent = `pane ${pid} — ${panes.get(pid).kind}`;
+  ctx.appendChild(label);
+  ctx.appendChild(menuItem("⬌ split right (new terminal)",
+    () => addTerminalPane(pid, "row")));
+  ctx.appendChild(menuItem("⬍ split down (new terminal)",
+    () => addTerminalPane(pid, "col")));
+  const sep1 = document.createElement("div");
+  sep1.className = "sep"; ctx.appendChild(sep1);
+  ctx.appendChild(menuItem("◫ turn into approvals pane",
+    () => changeKind(pid, "approvals")));
+  ctx.appendChild(menuItem("♥ turn into health pane",
+    () => changeKind(pid, "health")));
+  const sep2 = document.createElement("div");
+  sep2.className = "sep"; ctx.appendChild(sep2);
+  ctx.appendChild(menuItem("⚡ fill max terminals", fillMax));
+  ctx.appendChild(menuItem("✕ close pane", () => removePane(pid)));
+  ctx.style.left = Math.min(event.clientX,
+    window.innerWidth - 230) + "px";
+  ctx.style.top = Math.min(event.clientY,
+    window.innerHeight - 240) + "px";
+  ctx.style.display = "block";
+}
+
+async function changeKind(pid, kind) {
+  const info = panes.get(pid);
+  if (info.kind === "terminal" && info.session !== null)
+    await api(`/api/sessions/${info.session}/close`, "POST", {});
+  panes.set(pid, { kind, session: null });
+  renderLayout();
+}
+
+function hideMenu() { ctx.style.display = "none"; }
+document.addEventListener("click", hideMenu);
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") hideMenu();
+});
+
+/* ================= boot ================= */
+document.getElementById("addbtn").onclick = () => addTerminalPane();
+document.getElementById("maxbtn").onclick = fillMax;
+
 (async function boot() {
   const existing = await api("/api/sessions");
-  if (Array.isArray(existing)) {
-    tabs = existing.filter(s => !s.closed);
-    if (tabs.length) active = tabs[0].id;
+  const open = Array.isArray(existing)
+    ? existing.filter(s => !s.closed) : [];
+  if (open.length) {
+    for (const s of open) {
+      const full = await api(`/api/sessions/${s.id}/state`);
+      if (!full.error) states.set(s.id, full);
+      newPaneForSession(s.id);
+    }
+    buildTiled(allPids());
+    focused = firstTerminalPid();
+    renderLayout();
+  } else {
+    await addTerminalPane();
   }
-  if (!tabs.length) await addTab(); else { renderTabs(); refresh(); }
-  polling = setInterval(refresh, 1500);
+  setInterval(refreshAll, 2000);
 })();
 </script>
 </body>
