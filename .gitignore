@@ -26,3 +26,6 @@ training/data.txt
 
 # Private research code — never publish (leak guard also blocks)
 tt_codes/
+
+# Terminal private mode session logs — local only
+reports/surfing_ai_terminal_*/

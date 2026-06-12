@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""surfing_ai CLI — terminal private mode entry points.
+
+  surfing_ai terminal-private [--mode M] [--root DIR]
+  surfing_ai tmux-private     [--mode M] [--root DIR] [--dry-run]
+  surfing_ai approvals        list | approve <id> | deny <id> [--reason R]
+  surfing_ai backend-health
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+
+
+def _queue(root: Path):
+    from harness.approval_queue import ApprovalQueue
+    from harness.audit_log import latest_session_dir
+    session = latest_session_dir(root)
+    if session is None:
+        print("no terminal private sessions found under reports/")
+        sys.exit(1)
+    return ApprovalQueue(session / "approvals_queue.jsonl")
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="surfing_ai")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_term = sub.add_parser("terminal-private",
+                            help="private-mode REPL (local-only default)")
+    p_term.add_argument("--mode", default="local-only",
+                        choices=["local-only", "redacted-external", "audit"])
+    p_term.add_argument("--root", default=str(ROOT))
+
+    p_tmux = sub.add_parser("tmux-private", help="4-pane tmux workspace")
+    p_tmux.add_argument("--mode", default="local-only",
+                        choices=["local-only", "redacted-external", "audit"])
+    p_tmux.add_argument("--root", default=str(ROOT))
+    p_tmux.add_argument("--dry-run", action="store_true")
+
+    p_appr = sub.add_parser("approvals", help="approval queue")
+    p_appr.add_argument("action", choices=["list", "approve", "deny"])
+    p_appr.add_argument("id", nargs="?", type=int)
+    p_appr.add_argument("--reason", default="")
+    p_appr.add_argument("--root", default=str(ROOT))
+
+    sub.add_parser("backend-health",
+                   help="backend health, safe vocabulary only")
+
+    args = parser.parse_args(argv)
+
+    if args.command == "terminal-private":
+        from harness.terminal_private_mode import run_repl
+        run_repl(root=args.root, mode=args.mode)
+        return 0
+
+    if args.command == "tmux-private":
+        from harness.tmux_adapter import launch
+        result = launch(root=args.root, mode=args.mode,
+                        dry_run=args.dry_run)
+        for key, value in result.items():
+            print(f"{key}: {value}")
+        if result["status"] == "TMUX_NOT_FOUND":
+            print("run instead:", result["fallback"])
+            return 0
+        return 0 if result["status"] in ("LAUNCHED", "DRY_RUN") else 1
+
+    if args.command == "approvals":
+        queue = _queue(Path(args.root))
+        if args.action == "list":
+            records = queue.list()
+            if not records:
+                print("queue is empty")
+            for r in records:
+                print(f"#{r['id']} [{r['status']}] ({r['kind']}) "
+                      f"{r['label']}")
+            return 0
+        if args.id is None:
+            print("an id is required for approve/deny")
+            return 1
+        if args.action == "approve":
+            print(queue.approve(args.id))
+        else:
+            print(queue.deny(args.id, args.reason))
+        return 0
+
+    if args.command == "backend-health":
+        from harness.backend_health import format_health, summarize_health
+        print(format_health(summarize_health(project_root=str(ROOT))))
+        return 0
+
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,38 @@
+# Example private-mode config (synthetic).
+# Copy to the project root as `.surfing_ai_private.yaml` to customize.
+# The real file is never committed; missing file = safe defaults below.
+#
+# NOTE: .gitignore is NOT a security boundary. This guard works from its
+# own deny rules regardless of what git tracks or ignores.
+
+private_mode:
+  # External AI backends (claude/codex/gemini CLIs) default OFF.
+  external_backends_default: false
+  # MCP servers default OFF.
+  mcp_default: false
+  # Ask before reading files in the REPL.
+  require_approval_for_file_read: true
+  # Ask (preview + explicit y, default N) before any external prompt.
+  require_approval_for_external_prompt: true
+
+  # Directory prefixes that may never be read by the harness.
+  deny_paths:
+    - private/
+    - secrets/
+    - credentials/
+    - unpublished/
+    - local_only/
+    - reports/private/
+
+  # Filename globs that may never be read by the harness.
+  deny_globs:
+    - ".env"
+    - "*.env"
+    - "*.pem"
+    - "*.key"
+    - "*.secret"
+    - "*.npy"
+    - "*.npz"
+    - "*.pkl"
+    - "*.sqlite"
+    - "*.db"
