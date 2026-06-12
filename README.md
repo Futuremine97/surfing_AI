@@ -104,6 +104,43 @@ For local plugin development:
 claude --plugin-dir .
 ```
 
+## Terminal private mode
+
+A guarded REPL for working on private material with hard guarantees
+about what can leave the machine. See
+[docs/TERMINAL_PRIVATE_MODE.md](docs/TERMINAL_PRIVATE_MODE.md) for full
+details.
+
+```bash
+scripts/surfing_ai_terminal_private.sh        # local-only REPL (default)
+python3 scripts/surfing_ai terminal-private   # same
+python3 scripts/surfing_ai tmux-private       # 4-pane tmux workspace
+python3 scripts/surfing_ai backend-health     # safe-vocabulary health check
+python3 scripts/surfing_ai approvals list     # approval queue
+```
+
+Three modes, switchable in the REPL with `:mode <name>`:
+
+- `local-only` (default) - allowlisted shell commands only; external
+  backends and MCP are refused outright.
+- `redacted-external` - an external prompt may be sent, but only after
+  redaction, a written preview, and an explicit `y` approval (pressing
+  Enter means No). File contents are never transmitted.
+- `audit` - nothing executes; every action is logged as a dry-run plan.
+
+Key REPL commands: `:read <path>` (local read, guard applies),
+`:ask <backend> <prompt>` (redacted-external only), `:health`,
+`:approvals`, `:help`, `:quit`. Anything else runs as a shell command if
+it passes the allowlist; destructive or publishing patterns (`rm -rf`,
+`git push`, `git add -A`, `scp`, ...) come back as `BLOCKED` with a
+reason and an alternative.
+
+Deny rules live in `.surfing_ai_private.yaml` (optional, never
+committed; see `config/example_private_mode.yaml`) and work regardless
+of `.gitignore`. Every session writes an audit trail to
+`reports/surfing_ai_terminal_<timestamp>/` whose summary asserts
+`files_sent_external = 0`.
+
 ## Download and release
 
 Build the curated ZIP:
