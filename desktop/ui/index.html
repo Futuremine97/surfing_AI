@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Surfing AI — Private Desktop</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --text: #c9d1d9; --dim: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --red: #f85149; --yellow: #d29922;
+    --mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body { background: var(--bg); color: var(--text);
+         font: 13px var(--mono); height: 100vh;
+         display: flex; flex-direction: column; overflow: hidden; }
+
+  /* tab bar */
+  #tabs { display: flex; align-items: center; gap: 4px;
+          padding: 6px 8px; background: var(--panel);
+          border-bottom: 1px solid var(--border); }
+  .tab { padding: 4px 10px; border: 1px solid var(--border);
+         border-radius: 6px; cursor: pointer; color: var(--dim);
+         user-select: none; white-space: nowrap; }
+  .tab.active { color: var(--text); border-color: var(--accent);
+                background: #1f2937; }
+  .tab .x { margin-left: 8px; color: var(--dim); }
+  .tab .x:hover { color: var(--red); }
+  #newtab { display: flex; gap: 4px; align-items: center; }
+  select, button { background: #21262d; color: var(--text);
+                   border: 1px solid var(--border); border-radius: 6px;
+                   font: inherit; padding: 4px 8px; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  #brand { margin-left: auto; color: var(--dim); font-size: 11px; }
+
+  /* status bar */
+  #status { display: flex; gap: 16px; padding: 4px 10px; font-size: 11px;
+            color: var(--dim); background: var(--panel);
+            border-top: 1px solid var(--border); }
+  #status .ok { color: var(--green); }
+  #status .bad { color: var(--red); }
+
+  /* 4-pane grid */
+  #grid { flex: 1; display: grid; gap: 1px; background: var(--border);
+          grid-template-columns: 3fr 2fr; grid-template-rows: 3fr 2fr;
+          min-height: 0; }
+  .pane { background: var(--bg); display: flex; flex-direction: column;
+          min-height: 0; min-width: 0; }
+  .pane h2 { font-size: 11px; font-weight: 600; color: var(--dim);
+             text-transform: uppercase; letter-spacing: .08em;
+             padding: 6px 10px; background: var(--panel);
+             border-bottom: 1px solid var(--border); display: flex;
+             justify-content: space-between; align-items: center; }
+  .body { flex: 1; overflow-y: auto; padding: 8px 10px;
+          white-space: pre-wrap; word-break: break-word; }
+
+  /* repl */
+  .line-input  { color: var(--accent); }
+  .line-result { color: var(--text); }
+  .line-info   { color: var(--dim); }
+  .line-blocked{ color: var(--red); }
+  #replform { display: flex; border-top: 1px solid var(--border); }
+  #replform .prompt { padding: 8px 0 8px 10px; color: var(--green); }
+  #replin { flex: 1; background: transparent; border: 0; outline: none;
+            color: var(--text); font: inherit; padding: 8px 10px; }
+
+  /* approvals */
+  .approval-card { border: 1px solid var(--yellow); border-radius: 8px;
+                   padding: 10px; margin-bottom: 10px; }
+  .approval-card pre { white-space: pre-wrap; word-break: break-word;
+                       color: var(--text); margin: 8px 0; max-height: 180px;
+                       overflow-y: auto; }
+  .approve { border-color: var(--green); color: var(--green); }
+  .deny    { border-color: var(--red); color: var(--red); }
+
+  .vocab-present, .vocab-ok { color: var(--green); }
+  .vocab-missing, .vocab-failed { color: var(--red); }
+  .vocab-not_configured { color: var(--yellow); }
+  .empty { color: var(--dim); padding: 16px; text-align: center; }
+</style>
+</head>
+<body>
+  <div id="tabs">
+    <span id="tablist"></span>
+    <span id="newtab">
+      <select id="newmode">
+        <option value="local-only">local-only</option>
+        <option value="redacted-external">redacted-external</option>
+        <option value="audit">audit</option>
+      </select>
+      <button id="addbtn" title="new session">+ session</button>
+    </span>
+    <span id="brand">surfing_ai private desktop</span>
+  </div>
+
+  <div id="grid">
+    <div class="pane" style="grid-row: span 2">
+      <h2>terminal <span id="modelabel"></span></h2>
+      <div class="body" id="repl"></div>
+      <form id="replform">
+        <span class="prompt">private&gt;</span>
+        <input id="replin" autocomplete="off" spellcheck="false"
+               placeholder=":help for commands">
+      </form>
+    </div>
+    <div class="pane">
+      <h2>approvals <span id="apprcount"></span></h2>
+      <div class="body" id="approvals"><div class="empty">none</div></div>
+    </div>
+    <div class="pane">
+      <h2>backend health
+        <button id="healthbtn" style="font-size:10px">refresh</button></h2>
+      <div class="body" id="health"><div class="empty">press refresh</div></div>
+    </div>
+  </div>
+
+  <div id="status">
+    <span id="s-mode"></span>
+    <span id="s-blocked"></span>
+    <span id="s-external"></span>
+    <span id="s-files"></span>
+    <span id="s-audit" style="margin-left:auto"></span>
+  </div>
+
+<script>
+"use strict";
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+const HEADERS = { "Content-Type": "application/json",
+                  "X-Bridge-Token": TOKEN };
+let tabs = [];          // [{id, mode, closed}]
+let active = null;      // session id
+let polling = null;
+
+async function api(path, method = "GET", body = null) {
+  const res = await fetch(path, { method, headers: HEADERS,
+    body: body ? JSON.stringify(body) : null });
+  return res.json();
+}
+
+/* ---- tabs ---------------------------------------------------------- */
+function renderTabs() {
+  const el = document.getElementById("tablist");
+  el.innerHTML = "";
+  for (const t of tabs) {
+    const tab = document.createElement("span");
+    tab.className = "tab" + (t.id === active ? " active" : "");
+    tab.textContent = `#${t.id} ${t.mode}`;
+    const x = document.createElement("span");
+    x.className = "x"; x.textContent = "×";
+    x.onclick = async (e) => { e.stopPropagation(); await closeTab(t.id); };
+    tab.appendChild(x);
+    tab.onclick = () => { active = t.id; renderTabs(); refresh(); };
+    el.appendChild(tab);
+  }
+}
+
+async function addTab() {
+  const mode = document.getElementById("newmode").value;
+  const state = await api("/api/sessions", "POST", { mode });
+  if (state.error) return alert(state.error);
+  tabs.push({ id: state.id, mode: state.mode, closed: false });
+  active = state.id;
+  renderTabs(); refresh();
+}
+
+async function closeTab(id) {
+  await api(`/api/sessions/${id}/close`, "POST", {});
+  tabs = tabs.filter(t => t.id !== id);
+  if (active === id) active = tabs.length ? tabs[tabs.length - 1].id : null;
+  renderTabs(); refresh();
+}
+
+/* ---- panes ---------------------------------------------------------- */
+function renderState(s) {
+  document.getElementById("modelabel").textContent = `· ${s.mode}`;
+  const repl = document.getElementById("repl");
+  const stick = repl.scrollTop + repl.clientHeight >= repl.scrollHeight - 8;
+  repl.innerHTML = "";
+  for (const line of s.output) {
+    const div = document.createElement("div");
+    let cls = "line-" + line.kind;
+    if (line.text.startsWith("BLOCKED")) cls = "line-blocked";
+    div.className = cls;
+    div.textContent = (line.kind === "input" ? "private> " : "") + line.text;
+    repl.appendChild(div);
+  }
+  if (stick) repl.scrollTop = repl.scrollHeight;
+
+  const appr = document.getElementById("approvals");
+  appr.innerHTML = "";
+  if (s.pending) {
+    const card = document.createElement("div");
+    card.className = "approval-card";
+    const pre = document.createElement("pre");
+    pre.textContent = s.pending.preview;
+    const yes = document.createElement("button");
+    yes.className = "approve"; yes.textContent = "approve & send";
+    yes.onclick = () => decide(true);
+    const no = document.createElement("button");
+    no.className = "deny"; no.textContent = "deny (default)";
+    no.style.marginLeft = "8px";
+    no.onclick = () => decide(false);
+    card.append(pre, yes, no);
+    appr.appendChild(card);
+  } else if (!s.approvals_pending.length) {
+    appr.innerHTML = '<div class="empty">none</div>';
+  }
+  for (const r of s.approvals_pending) {
+    const div = document.createElement("div");
+    div.className = "line-info";
+    div.textContent = `#${r.id} ${r.label}`;
+    appr.appendChild(div);
+  }
+  document.getElementById("apprcount").textContent =
+    s.pending ? "⚠ waiting" : "";
+
+  const c = s.counters;
+  setStatus("s-mode", `mode=${s.mode}`);
+  setStatus("s-blocked", `blocked=${c.blocked_commands}`,
+            c.blocked_commands ? "bad" : "");
+  setStatus("s-external", `external_calls=${c.external_backend_calls}`);
+  setStatus("s-files", `files_sent_external=${c.files_sent_external}`,
+            c.files_sent_external === 0 ? "ok" : "bad");
+  setStatus("s-audit", s.audit_dir.split("/").slice(-1)[0]);
+}
+
+function setStatus(id, text, cls = "") {
+  const el = document.getElementById(id);
+  el.textContent = text; el.className = cls;
+}
+
+async function refresh() {
+  if (active === null) {
+    document.getElementById("repl").innerHTML =
+      '<div class="empty">+ session to start</div>';
+    return;
+  }
+  const s = await api(`/api/sessions/${active}/state`);
+  if (!s.error) {
+    const tab = tabs.find(t => t.id === active);
+    if (tab) tab.mode = s.mode;
+    renderState(s);
+  }
+}
+
+async function decide(approve) {
+  await api(`/api/sessions/${active}/decision`, "POST", { approve });
+  refresh();
+}
+
+/* ---- input ----------------------------------------------------------- */
+document.getElementById("replform").onsubmit = async (e) => {
+  e.preventDefault();
+  if (active === null) return;
+  const input = document.getElementById("replin");
+  const line = input.value; input.value = "";
+  if (!line.trim()) return;
+  const r = await api(`/api/sessions/${active}/input`, "POST", { line });
+  if (r.status === "closed") {
+    tabs = tabs.filter(t => t.id !== active);
+    active = tabs.length ? tabs[tabs.length - 1].id : null;
+    renderTabs();
+  }
+  refresh();
+};
+
+document.getElementById("addbtn").onclick = addTab;
+document.getElementById("healthbtn").onclick = async () => {
+  const h = await api("/api/health");
+  const el = document.getElementById("health");
+  el.innerHTML = "";
+  for (const row of h.rows) {
+    const div = document.createElement("div");
+    div.innerHTML =
+      `${row.backend}: binary=<span class="vocab-${row.binary}">` +
+      `${row.binary}</span> auth=<span class="vocab-${row.auth}">` +
+      `${row.auth}</span> api_key=<span class="vocab-${row.api_key}">` +
+      `${row.api_key}</span>`;
+    el.appendChild(div);
+  }
+};
+
+/* ---- boot ------------------------------------------------------------ */
+(async function boot() {
+  const existing = await api("/api/sessions");
+  if (Array.isArray(existing)) {
+    tabs = existing.filter(s => !s.closed);
+    if (tabs.length) active = tabs[0].id;
+  }
+  if (!tabs.length) await addTab(); else { renderTabs(); refresh(); }
+  polling = setInterval(refresh, 1500);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+[package]
+name = "surfing-ai-desktop"
+version = "0.1.0"
+description = "Surfing AI private desktop (tmux/cmux-style multi-session workspace)"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[profile.release]
+strip = true
+lto = true

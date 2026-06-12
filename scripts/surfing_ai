@@ -52,6 +52,16 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("backend-health",
                    help="backend health, safe vocabulary only")
 
+    p_desk = sub.add_parser("desktop",
+                            help="desktop bridge: localhost UI + JSON API")
+    p_desk.add_argument("--root", default=str(ROOT))
+    p_desk.add_argument("--host", default="127.0.0.1")
+    p_desk.add_argument("--port", type=int, default=4175)
+    p_desk.add_argument("--token", default=None,
+                        help="shared token (default: random, printed once)")
+    p_desk.add_argument("--open", action="store_true",
+                        help="open the UI in the default browser")
+
     args = parser.parse_args(argv)
 
     if args.command == "terminal-private":
@@ -92,6 +102,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "backend-health":
         from harness.backend_health import format_health, summarize_health
         print(format_health(summarize_health(project_root=str(ROOT))))
+        return 0
+
+    if args.command == "desktop":
+        from harness.desktop_bridge import serve
+        serve(root=args.root, host=args.host, port=args.port,
+              token=args.token, open_browser=args.open)
         return 0
 
     return 1
