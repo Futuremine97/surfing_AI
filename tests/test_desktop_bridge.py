@@ -173,6 +173,29 @@ def test_orchestrator_info_and_max_sessions(tmp_path):
         stop(bridge, server)
 
 
+def test_capabilities_endpoints(tmp_path):
+    (tmp_path / "skills" / "demo").mkdir(parents=True)
+    (tmp_path / "skills" / "demo" / "SKILL.md").write_text(
+        "d" * 200, encoding="utf-8")
+    bridge, server, client = start_bridge(tmp_path)
+    try:
+        _, data = client.call("GET", "/api/capabilities")
+        ids = [c["id"] for c in data["capabilities"]]
+        assert "skill:skills/demo" in ids
+        assert data["summary"]["saved_tokens_per_request"] == 0
+
+        _, r = client.call("POST", "/api/capabilities/toggle",
+                           {"id": "skill:skills/demo", "enabled": False})
+        assert r["enabled"] is False
+        assert r["summary"]["saved_tokens_per_request"] == 50
+
+        status, r = client.call("POST", "/api/capabilities/toggle",
+                                {"id": "skill:ghost", "enabled": True})
+        assert status == 404
+    finally:
+        stop(bridge, server)
+
+
 def test_ask_refused_fast_in_local_only(tmp_path):
     bridge, server, client = start_bridge(tmp_path)
     try:

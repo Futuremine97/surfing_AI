@@ -128,6 +128,24 @@ the shell can find `scripts/surfing_ai`.
 | GET | `/api/health` | – | safe-vocabulary backend health |
 | GET | `/api/orchestrator` | – | cpu_count, max_processes, open/available |
 | POST | `/api/orchestrator/max_sessions` | `{mode}` | fills up to max_processes sessions |
+| GET | `/api/capabilities` | – | MCP/skill/plugin list + token-savings summary |
+| POST | `/api/capabilities/toggle` | `{id, enabled}` | per-item enable/disable |
+
+## Capability toggles and token savings
+
+The `⛭ capabilities` pane (toolbar button or right-click → turn into
+capabilities pane) lists every discovered MCP server (`.mcp.json`),
+skill (`skills/`, `.agents/skills/`), and plugin (`.claude-plugin`,
+`integrations/`) with an individual ON/OFF toggle
+(`harness/capability_registry.py`, state in
+`.surfing_ai_capabilities.json`, gitignored). MCP servers default to
+OFF, matching the private-mode posture.
+
+The pane and the status bar show estimated tokens saved per request
+(and per 100 requests) from everything currently disabled. The
+estimate is file-size arithmetic (`bytes / 4`) computed locally — by
+construction, displaying it costs **zero** model tokens. The status
+bar value is cached and refreshed at most every 30 s.
 
 ## Pane splitting (right-click) and max processes
 

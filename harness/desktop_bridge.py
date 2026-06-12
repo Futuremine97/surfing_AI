@@ -259,6 +259,11 @@ class DesktopBridge:
                     rows = summarize_health(project_root=str(bridge.root))
                     return self._send(200, {"rows": rows,
                                             "text": format_health(rows)})
+                if parts == ["api", "capabilities"]:
+                    from harness.capability_registry import (
+                        CapabilityRegistry)
+                    return self._send(
+                        200, CapabilityRegistry(bridge.root).listing())
                 if parts == ["api", "orchestrator"]:
                     from harness.process_orchestrator import max_processes
                     open_sessions = [s for s in bridge.sessions.values()
@@ -284,6 +289,16 @@ class DesktopBridge:
                     mode = body.get("mode", DEFAULT_MODE)
                     result = self.server_create(mode)
                     return self._send(200, result)
+                if parts == ["api", "capabilities", "toggle"]:
+                    from harness.capability_registry import (
+                        CapabilityRegistry)
+                    registry = CapabilityRegistry(bridge.root)
+                    result = registry.set_enabled(
+                        str(body.get("id", "")), bool(body.get("enabled")))
+                    if "error" in result:
+                        return self._send(404, result)
+                    return self._send(200, {**result,
+                                            "summary": registry.summary()})
                 if parts == ["api", "orchestrator", "max_sessions"]:
                     from harness.process_orchestrator import max_processes
                     mode = body.get("mode", DEFAULT_MODE)

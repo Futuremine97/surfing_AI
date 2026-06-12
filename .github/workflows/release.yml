@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch: {}
 
 permissions:
   contents: write
@@ -29,6 +30,7 @@ jobs:
           sha256sum dist/surfing-ai.zip > dist/surfing-ai.zip.sha256
 
       - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -76,14 +78,23 @@ jobs:
 
       - name: Install Tauri CLI
         shell: bash
-        run: cargo binstall tauri-cli --locked --no-confirm
+        run: cargo binstall tauri-cli --no-confirm
 
       - name: Build desktop bundles
         shell: bash
         working-directory: desktop/src-tauri
         run: cargo tauri build ${{ matrix.args }}
 
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-failure-${{ matrix.os }}
+          path: desktop/src-tauri/target/**/*.log
+          if-no-files-found: ignore
+
       - name: Upload bundles to the release
+        if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}

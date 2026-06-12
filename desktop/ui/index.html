@@ -65,6 +65,23 @@
   .deny    { border-color: var(--red); color: var(--red);
              margin-left: 8px; }
 
+  /* capabilities */
+  .cap-summary { border: 1px solid var(--border); border-radius: 8px;
+                 padding: 8px 10px; margin-bottom: 10px;
+                 color: var(--dim); }
+  .cap-summary b { color: var(--green); }
+  .cap-group { color: var(--dim); font-size: 10px;
+               text-transform: uppercase; letter-spacing: .08em;
+               margin: 10px 0 4px; }
+  .cap-row { display: flex; align-items: center; gap: 8px;
+             padding: 3px 0; }
+  .cap-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis;
+                 white-space: nowrap; }
+  .cap-row .tk { color: var(--dim); font-size: 11px; }
+  .tg { min-width: 52px; font-size: 11px; padding: 2px 8px; }
+  .tg.on  { border-color: var(--green); color: var(--green); }
+  .tg.off { border-color: var(--border); color: var(--dim); }
+
   .vocab-present, .vocab-ok { color: var(--green); }
   .vocab-missing, .vocab-failed { color: var(--red); }
   .vocab-not_configured { color: var(--yellow); }
@@ -98,6 +115,7 @@
     </select>
     <button id="addbtn">+ terminal</button>
     <button id="maxbtn" title="fill the grid with one terminal per CPU core">⚡ max procs</button>
+    <button id="capsbtn" title="enable/disable MCP servers, skills, plugins">⛭ capabilities</button>
     <span id="hint">right-click a pane to split / close / change type</span>
     <span id="brand">surfing_ai private desktop</span>
   </div>
@@ -112,6 +130,7 @@
     <span id="s-external"></span>
     <span id="s-files"></span>
     <span id="s-procs"></span>
+    <span id="s-tokens" title="local file-size arithmetic — zero model tokens spent on this number"></span>
     <span id="s-audit" style="margin-left:auto"></span>
   </div>
 
@@ -262,6 +281,13 @@ function renderPane(pid) {
       ` placeholder=":help">`;
     form.onsubmit = (e) => { e.preventDefault(); submitLine(pid); };
     div.append(h2, out, form);
+  } else if (info.kind === "capabilities") {
+    h2.textContent = "capabilities — mcp / skills / plugins";
+    const body = document.createElement("div");
+    body.className = "body"; body.id = `caps-${pid}`;
+    body.innerHTML = '<div class="empty">loading…</div>';
+    div.append(h2, body);
+    setTimeout(() => loadCapsPane(pid), 0);
   } else if (info.kind === "approvals") {
     h2.textContent = "approvals (focused session)";
     const body = document.createElement("div");
@@ -351,6 +377,79 @@ async function loadHealth(pid) {
       `${row.api_key}</span>`;
     el.appendChild(div);
   }
+}
+
+/* ---- capabilities (token math is local arithmetic, zero tokens) ---- */
+let capsSummary = null;
+
+function renderTokenStatus() {
+  if (!capsSummary) return;
+  setStatus("s-tokens",
+    `tokens saved/req ≈${capsSummary.saved_tokens_per_request}` +
+    ` (${capsSummary.saved_percent}%)`,
+    capsSummary.saved_tokens_per_request > 0 ? "ok" : "");
+}
+
+async function loadCapsSummary() {
+  const data = await api("/api/capabilities").catch(() => null);
+  if (data && data.summary) { capsSummary = data.summary;
+    renderTokenStatus(); }
+  return data;
+}
+
+async function loadCapsPane(pid) {
+  const data = await loadCapsSummary();
+  const el = document.getElementById(`caps-${pid}`);
+  if (!el || !data) return;
+  el.innerHTML = "";
+  const s = data.summary;
+  const sum = document.createElement("div");
+  sum.className = "cap-summary";
+  sum.innerHTML =
+    `saved per request: <b>≈${s.saved_tokens_per_request} tokens</b> ` +
+    `(${s.saved_percent}%) · per 100 requests: ` +
+    `<b>≈${s.saved_tokens_per_100_requests}</b><br>` +
+    `enabled ${s.enabled_count}/${s.capabilities} · baseline ` +
+    `≈${s.baseline_tokens_per_request} tok/req · ` +
+    `computed locally — zero model tokens`;
+  el.appendChild(sum);
+
+  const groups = { mcp: "mcp servers", skill: "skills",
+                   plugin: "plugins" };
+  for (const kind of Object.keys(groups)) {
+    const caps = data.capabilities.filter(c => c.kind === kind);
+    const head = document.createElement("div");
+    head.className = "cap-group";
+    head.textContent = groups[kind] + (caps.length ? "" : " — none found");
+    el.appendChild(head);
+    for (const cap of caps) {
+      const row = document.createElement("div");
+      row.className = "cap-row";
+      const btn = document.createElement("button");
+      btn.className = "tg " + (cap.enabled ? "on" : "off");
+      btn.textContent = cap.enabled ? "ON" : "OFF";
+      btn.onclick = () => toggleCap(cap.id, !cap.enabled, pid);
+      const nm = document.createElement("span");
+      nm.className = "nm"; nm.textContent = cap.name;
+      nm.title = cap.source;
+      const tk = document.createElement("span");
+      tk.className = "tk"; tk.textContent = `≈${cap.est_tokens} tok`;
+      row.append(btn, nm, tk);
+      el.appendChild(row);
+    }
+  }
+}
+
+async function toggleCap(id, enabled, pid) {
+  const r = await api("/api/capabilities/toggle", "POST", { id, enabled });
+  if (r.error) return alert(r.error);
+  await loadCapsPane(pid);
+}
+
+function addCapsPane() {
+  const leaf = newPane("capabilities");
+  if (!layout) { layout = leaf; renderLayout(); return; }
+  splitPane(focused ?? allPids()[0], "row", leaf);
 }
 
 function focusedState() {
@@ -502,6 +601,8 @@ function openMenu(event, pid) {
     () => changeKind(pid, "approvals")));
   ctx.appendChild(menuItem("♥ turn into health pane",
     () => changeKind(pid, "health")));
+  ctx.appendChild(menuItem("⛭ turn into capabilities pane",
+    () => changeKind(pid, "capabilities")));
   const sep2 = document.createElement("div");
   sep2.className = "sep"; ctx.appendChild(sep2);
   ctx.appendChild(menuItem("⚡ fill max terminals", fillMax));
@@ -530,6 +631,7 @@ document.addEventListener("keydown", e => {
 /* ================= boot ================= */
 document.getElementById("addbtn").onclick = () => addTerminalPane();
 document.getElementById("maxbtn").onclick = fillMax;
+document.getElementById("capsbtn").onclick = addCapsPane;
 
 (async function boot() {
   const existing = await api("/api/sessions");
@@ -547,6 +649,8 @@ document.getElementById("maxbtn").onclick = fillMax;
   } else {
     await addTerminalPane();
   }
+  loadCapsSummary();             // cached; status bar costs zero tokens
+  setInterval(loadCapsSummary, 30000);
   setInterval(refreshAll, 2000);
 })();
 </script>
