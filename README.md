@@ -104,6 +104,30 @@ For local plugin development:
 claude --plugin-dir .
 ```
 
+## One-line install (npm)
+
+```bash
+npm install -g github:Futuremine97/surfing_AI   # straight from GitHub
+# or, once published to the registry:
+npm install -g surfing-ai
+```
+
+Then:
+
+```bash
+surfing-ai                      # multi-tab TUI
+surfing-ai exec "git status"    # one-shot through a private session
+surfing-ai par "cmd a" "cmd b"  # parallel across CPU workers
+surfing-ai desktop --open       # browser/desktop UI
+```
+
+The TUI is zero-dependency (Node >= 18 + python3) and concurrency-
+native: every tab is its own python process (multi-process), `:par
+a ; b ; c` fans commands across one PrivateTerminal worker per CPU
+core (multi-thread), and tabs switch with Ctrl+T / Ctrl+W / Alt+1..9.
+All lines run through the same private-mode harness — allowlist, file
+guard, redaction, audit, `files_sent_external = 0`.
+
 ## Desktop app download
 
 Prebuilt desktop apps (tmux/cmux-style multi-session private workspace)

@@ -1,0 +1,42 @@
+{
+  "name": "surfing-ai",
+  "version": "0.1.2",
+  "description": "Verification-gated local agent harness — private-mode terminal with multi-tab / multi-process / multi-thread CLI, desktop app, and tmux grids",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Futuremine97/surfing_AI.git"
+  },
+  "bin": {
+    "surfing-ai": "cli/surfing-ai.js"
+  },
+  "files": [
+    "cli/",
+    "harness/*.py",
+    "scripts/surfing_ai",
+    "scripts/build_desktop_app.py",
+    "desktop/ui/",
+    "config/example_private_mode.yaml",
+    "docs/TERMINAL_PRIVATE_MODE.md",
+    "docs/DESKTOP_APP.md",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "ai",
+    "agent",
+    "cli",
+    "tui",
+    "private-mode",
+    "tmux",
+    "claude",
+    "codex",
+    "gemini"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}
