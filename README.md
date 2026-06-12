@@ -104,6 +104,32 @@ For local plugin development:
 claude --plugin-dir .
 ```
 
+## Desktop app download
+
+Prebuilt desktop apps (tmux/cmux-style multi-session private workspace)
+are attached to every [GitHub Release](https://github.com/Futuremine97/surfing_AI/releases):
+
+- **macOS** — `.dmg` (universal: Apple Silicon + Intel)
+- **Windows** — `.exe` installer (NSIS) / `.msi`
+- **Linux** — `.AppImage` / `.deb`
+
+Requirements: `python3` on PATH (macOS prompts to install Command Line
+Tools on first use; most Linux distros ship it). The app talks only to
+`127.0.0.1` — no external connections are made without explicit
+per-prompt approval.
+
+The builds are not code-signed yet. On macOS, right-click the app and
+choose **Open** the first time, or run:
+
+```bash
+xattr -cr "/Applications/Surfing AI Desktop.app"
+```
+
+Session data and audit logs are written to `~/SurfingAI/`. See
+[docs/DESKTOP_APP.md](docs/DESKTOP_APP.md) for the architecture and
+[docs/TERMINAL_PRIVATE_MODE.md](docs/TERMINAL_PRIVATE_MODE.md) for the
+security model.
+
 ## Terminal private mode
 
 A guarded REPL for working on private material with hard guarantees

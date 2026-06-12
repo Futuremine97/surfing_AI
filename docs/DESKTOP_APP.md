@@ -75,6 +75,25 @@ in any case.
 - Each tab writes its own audit trail under
   `reports/surfing_ai_terminal_<ts>/`.
 
+## Download (end users)
+
+Tagged releases (`v*`) automatically build and attach installers to
+[GitHub Releases](https://github.com/Futuremine97/surfing_AI/releases)
+via `.github/workflows/release.yml` (`desktop` job):
+
+| OS | artifact | notes |
+|---|---|---|
+| macOS | `.dmg` | universal (aarch64 + x86_64); unsigned — right-click → Open, or `xattr -cr` |
+| Windows | `.exe` (NSIS), `.msi` | needs `python` on PATH |
+| Linux | `.AppImage`, `.deb` | needs `python3` |
+
+The bundle ships the Python harness inside the app resources
+(`harness/`, `scripts/surfing_ai`, `desktop/ui/`). At launch the shell
+resolves the code root in this order: `$SURFING_AI_ROOT` → bundle
+resources → dev checkout. Installed apps run sessions in
+`~/SurfingAI/` (created on first launch), which is where audit trails
+land.
+
 ## Run
 
 Browser mode (no toolchain needed):

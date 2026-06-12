@@ -14,6 +14,19 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all"
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/256x256.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "resources": {
+      "../../harness/*.py": "harness/",
+      "../../scripts/surfing_ai": "scripts/",
+      "../../config/example_private_mode.yaml": "config/",
+      "../ui/index.html": "desktop/ui/"
+    }
   }
 }

@@ -300,6 +300,7 @@ class DesktopBridge:
 
 def serve(root: str | Path = ".", host: str = "127.0.0.1", port: int = 4175,
           token: str | None = None, open_browser: bool = False) -> None:
+    Path(root).mkdir(parents=True, exist_ok=True)
     bridge = DesktopBridge(root=root, token=token)
     server = bridge.make_server(host, port)
     actual_port = server.server_address[1]
