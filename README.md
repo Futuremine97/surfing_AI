@@ -109,9 +109,19 @@ claude --plugin-dir .
 Prebuilt desktop apps (tmux/cmux-style multi-session private workspace)
 are attached to every [GitHub Release](https://github.com/Futuremine97/surfing_AI/releases):
 
-- **macOS** — `.dmg` (universal: Apple Silicon + Intel)
-- **Windows** — `.exe` installer (NSIS) / `.msi`
-- **Linux** — `.AppImage` / `.deb`
+- **macOS** — `SurfingAI-Desktop.dmg` (lite, no toolchain) and a Tauri
+  `.dmg` (universal) when the native build succeeds
+- **Windows** — `SurfingAI-Desktop.exe` (lite, PyInstaller) and Tauri
+  NSIS/MSI installers when the native build succeeds
+- **Linux** — `.AppImage` / `.deb` (Tauri)
+
+The *lite* artifacts are built without Rust/Node (plain `.app` bundle +
+`hdiutil`, PyInstaller on Windows), so they are always present on a
+release. You can also build the macOS dmg yourself in one command:
+
+```bash
+python3 scripts/build_desktop_app.py --output dist --dmg
+```
 
 Requirements: `python3` on PATH (macOS prompts to install Command Line
 Tools on first use; most Linux distros ship it). The app talks only to

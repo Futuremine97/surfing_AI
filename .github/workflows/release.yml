@@ -41,9 +41,78 @@ jobs:
             --generate-notes \
             --title "Surfing AI ${GITHUB_REF_NAME}"
 
+  # Lite builds: no Rust/Node toolchain, guaranteed artifacts.
+  desktop-lite-macos:
+    name: Lite .dmg (macOS, no toolchain)
+    needs: release
+    runs-on: macos-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Build .app bundle and .dmg
+        run: python3 scripts/build_desktop_app.py --output dist --dmg --zip
+
+      - name: Upload artifacts (always)
+        uses: actions/upload-artifact@v4
+        with:
+          name: surfing-ai-desktop-lite-macos
+          path: |
+            dist/*.dmg
+            dist/*.zip
+
+      - name: Upload to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" dist/*.dmg dist/*.zip \
+            --clobber
+
+  desktop-lite-windows:
+    name: Lite .exe (Windows, PyInstaller)
+    needs: release
+    runs-on: windows-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Build .exe
+        shell: bash
+        run: |
+          pip install pyinstaller
+          pyinstaller --noconfirm --onefile --windowed \
+            --name SurfingAI-Desktop \
+            --icon desktop/src-tauri/icons/icon.ico \
+            --add-data "harness;harness" \
+            --add-data "desktop/ui;desktop/ui" \
+            --add-data "scripts;scripts" \
+            packaging/desktop_entry.py
+
+      - name: Upload artifacts (always)
+        uses: actions/upload-artifact@v4
+        with:
+          name: surfing-ai-desktop-lite-windows
+          path: dist/SurfingAI-Desktop.exe
+
+      - name: Upload to the release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${GITHUB_REF_NAME}" \
+            dist/SurfingAI-Desktop.exe --clobber
+
   desktop:
     name: Desktop app (${{ matrix.os }})
     needs: release
+    continue-on-error: true   # lite jobs above guarantee the artifacts
     strategy:
       fail-fast: false
       matrix:

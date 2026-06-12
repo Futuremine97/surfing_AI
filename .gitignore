@@ -35,3 +35,6 @@ desktop/src-tauri/target/
 
 # Capability toggle state — local only
 .surfing_ai_capabilities.json
+
+# Build outputs
+dist/
