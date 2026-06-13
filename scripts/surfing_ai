@@ -52,11 +52,20 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("backend-health",
                    help="backend health, safe vocabulary only")
 
+    sub.add_parser("threads",
+                   help="show detected logical threads and the "
+                        "20/50/70/100%% worker budget")
+
     p_max = sub.add_parser("max-procs",
                            help="max-process grid: tmux panes, or "
                                 "headless parallel command runner")
     p_max.add_argument("--panes", type=int, default=None,
                        help="pane/worker count (default: cores - 1)")
+    p_max.add_argument("--threads", default=None,
+                       help="thread budget as a utilization level: "
+                            "20|50|60|70|80|90|100|max. Sets workers to "
+                            "that percent of detected logical threads. "
+                            "Ignored when --panes is given.")
     p_max.add_argument("--mode", default="local-only",
                        choices=["local-only", "redacted-external", "audit"])
     p_max.add_argument("--root", default=str(ROOT))
@@ -117,6 +126,11 @@ def main(argv: list[str] | None = None) -> int:
         print(format_health(summarize_health(project_root=str(ROOT))))
         return 0
 
+    if args.command == "threads":
+        from harness.thread_budget import format_table
+        print(format_table())
+        return 0
+
     if args.command == "desktop":
         from harness.desktop_bridge import serve
         serve(root=args.root, host=args.host, port=args.port,
@@ -125,7 +139,15 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "max-procs":
         from harness.process_orchestrator import ParallelRunner, max_processes
-        count = args.panes or max_processes()
+        if args.panes:
+            count = args.panes
+        elif args.threads:
+            from harness.thread_budget import logical_threads, resolve_workers
+            count = resolve_workers(args.threads)
+            print(f"thread budget: {args.threads} of {logical_threads()} "
+                  f"logical threads -> {count} worker(s)")
+        else:
+            count = max_processes()
         if args.run:
             runner = ParallelRunner(root=args.root, mode=args.mode,
                                     workers=count)

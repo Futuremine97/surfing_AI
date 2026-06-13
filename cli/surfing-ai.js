@@ -29,7 +29,7 @@ const VERSION = require(path.join(ROOT, "package.json")).version;
 
 const PASSTHROUGH = new Set([
   "terminal-private", "tmux-private", "approvals", "backend-health",
-  "desktop", "max-procs",
+  "desktop", "max-procs", "threads",
 ]);
 
 function checkPython() {
@@ -47,9 +47,12 @@ function usage() {
 usage:
   surfing-ai                       multi-tab TUI (default when a TTY)
   surfing-ai exec "<cmd>"          one-shot command through a private session
-  surfing-ai par "a" "b" "c"       parallel commands across CPU workers
+  surfing-ai par [--threads N] ... parallel commands across CPU workers
   surfing-ai desktop [--open]      desktop bridge (browser UI)
   surfing-ai max-procs [...]       tmux grid / headless parallel runner
+  surfing-ai max-procs --threads N worker budget = N% of logical threads
+                                   (N = 20 | 50 | 70 | 100 | max)
+  surfing-ai threads               show threads + 20/50/70/100% budget
   surfing-ai terminal-private      plain single REPL
   surfing-ai backend-health        backend status (safe vocabulary)
   surfing-ai approvals list        approval queue
@@ -287,8 +290,16 @@ function main() {
     return execOnce(args.slice(1).join(" "));
   }
   if (args[0] === "par") {
-    if (args.length < 2) { console.error("usage: surfing-ai par \"a\" \"b\" ..."); process.exit(1); }
-    return passthrough(["max-procs", "--run", ...args.slice(1)]);
+    let rest = args.slice(1);
+    // optional leading thread budget: par --threads 50 "a" "b"
+    const pre = [];
+    if (rest[0] === "--threads") {
+      if (!rest[1]) { console.error("usage: surfing-ai par --threads <20|50|70|100|max> \"a\" \"b\""); process.exit(1); }
+      pre.push("--threads", rest[1]);
+      rest = rest.slice(2);
+    }
+    if (!rest.length) { console.error("usage: surfing-ai par [--threads N] \"a\" \"b\" ..."); process.exit(1); }
+    return passthrough(["max-procs", ...pre, "--run", ...rest]);
   }
   if (PASSTHROUGH.has(args[0])) return passthrough(args);
   if (args.length) { usage(); process.exit(1); }

@@ -1,0 +1,303 @@
+{
+  "version": "1.0",
+  "tool": "surfing-ai",
+  "description": "Executable reverse-question spec for the surfing-ai CLI. A driver asks the entry_question first to pick a track (cmux/tmux/command), then asks that track's command-specific questions, maps answers to CLI flags via each option's `maps_to`, and assembles the final command from `command_template`.",
+  "answer_mapping": {
+    "how_to_apply": "For each answered question, take the chosen option's `maps_to` ({flag,value}). If flag is null the answer is informational only. Substitute {placeholders} in command_template; drop a placeholder whose mapped option has `omit_when_default: true` and the default was chosen.",
+    "placeholder_syntax": "{name} = required substitution, [--flag {name}] = include the whole bracket only if a non-default value was chosen."
+  },
+
+  "entry_question": {
+    "id": "cli_mode",
+    "header": "CLI 모드",
+    "question": "surfing-ai CLI를 어떤 동시성/멀티세션 방식으로 사용하시겠어요?",
+    "multiSelect": false,
+    "options": [
+      {
+        "label": "cmux (내장 멀티탭 TUI)",
+        "value": "cmux",
+        "description": "Node 내장 멀티탭 터미널. 각 탭이 독립 python 프로세스(multi-process). 추가 도구 불필요(Node18+ / python3). 초보자 권장.",
+        "routes_to": ["cmux", "exec", "par"]
+      },
+      {
+        "label": "tmux (4-pane / 그리드)",
+        "value": "tmux",
+        "description": "tmux-private(4분할) 또는 max-procs(CPU 코어당 1 REPL 그리드). 시스템에 tmux 설치 필요. 화면 분할 워크플로우 선호 시.",
+        "routes_to": ["tmux-private", "max-procs"]
+      },
+      {
+        "label": "command (비대화형)",
+        "value": "command",
+        "description": "exec 단발 실행 / par 병렬 실행 / desktop 브라우저 UI / approvals / backend-health. 스크립트·CI·자동화용, TTY 불필요.",
+        "routes_to": ["exec", "par", "desktop", "approvals", "backend-health"]
+      }
+    ]
+  },
+
+  "shared_questions": {
+    "mode": {
+      "id": "mode",
+      "header": "보안 모드",
+      "question": "어떤 프라이버시/실행 모드로 실행할까요? (REPL 안에서 :mode 로 전환 가능)",
+      "multiSelect": false,
+      "options": [
+        {"label": "local-only (기본)", "value": "local-only", "description": "허용목록 셸 명령만. 외부 백엔드/MCP는 즉시 거부. 가장 안전.", "maps_to": {"flag": "--mode", "value": "local-only"}, "omit_when_default": true, "default": true},
+        {"label": "redacted-external", "value": "redacted-external", "description": "리댁션 + 미리보기 + 명시적 y 승인 후에만 외부 프롬프트 전송. 파일 내용은 전송 안 됨.", "maps_to": {"flag": "--mode", "value": "redacted-external"}},
+        {"label": "audit", "value": "audit", "description": "아무것도 실행하지 않음. 모든 동작을 dry-run 계획으로 로깅.", "maps_to": {"flag": "--mode", "value": "audit"}}
+      ]
+    },
+    "thread_budget": {
+      "id": "thread_budget",
+      "header": "스레드 사용량",
+      "question": "이 머신의 논리 스레드 중 얼마나 사용할까요? (감지된 스레드 수에 비례해 워커 수가 정해집니다)",
+      "multiSelect": false,
+      "options": [
+        {"label": "20% (가볍게)", "value": "20", "description": "백그라운드 작업용. 다른 앱 영향 최소.", "maps_to": {"flag": "--threads", "value": "20"}},
+        {"label": "50% (기본)", "value": "50", "description": "균형. 절반의 논리 스레드 사용.", "maps_to": {"flag": "--threads", "value": "50"}, "default": true},
+        {"label": "60%", "value": "60", "description": "균형보다 약간 높은 처리량.", "maps_to": {"flag": "--threads", "value": "60"}},
+        {"label": "70% (적극적)", "value": "70", "description": "응답성 약간 양보하고 처리량 우선.", "maps_to": {"flag": "--threads", "value": "70"}},
+        {"label": "80%", "value": "80", "description": "고처리량. 다른 작업 여유는 줄어듦.", "maps_to": {"flag": "--threads", "value": "80"}},
+        {"label": "90%", "value": "90", "description": "거의 최대. 소량 여유만 남김.", "maps_to": {"flag": "--threads", "value": "90"}},
+        {"label": "100% (최대)", "value": "100", "description": "모든 논리 스레드 사용. 머신이 바빠질 수 있음.", "maps_to": {"flag": "--threads", "value": "100"}}
+      ]
+    },
+    "root": {
+      "id": "root",
+      "header": "작업 루트",
+      "question": "작업 루트 디렉터리를 기본(프로젝트 루트)으로 둘까요, 직접 지정할까요?",
+      "multiSelect": false,
+      "options": [
+        {"label": "기본값", "value": "default", "description": "리포지토리 루트 사용.", "maps_to": {"flag": null, "value": null}, "omit_when_default": true, "default": true},
+        {"label": "직접 지정", "value": "custom", "description": "다른 디렉터리를 루트로 사용. 경로 입력 필요.", "maps_to": {"flag": "--root", "value": "{root}"}, "requires_input": "root"}
+      ]
+    }
+  },
+
+  "commands": {
+    "cmux": {
+      "summary": "내장 멀티탭 TUI (기본 실행). 각 탭=독립 private 세션.",
+      "command_template": "surfing-ai [--mode {mode}]",
+      "requires": ["node>=18", "python3"],
+      "questions": [
+        {"$ref": "shared_questions.mode"},
+        {
+          "id": "tab_plan",
+          "header": "탭 사용",
+          "question": "처음에 탭을 몇 개로 시작하고 어떻게 다룰지 안내가 필요하세요?",
+          "multiSelect": false,
+          "options": [
+            {"label": "단일 탭으로 시작", "value": "single", "description": "기본 1개 탭. 필요 시 Ctrl+T로 추가.", "maps_to": {"flag": null, "value": null}},
+            {"label": "멀티탭 단축키 안내", "value": "multi", "description": "Ctrl+T 새 탭 / Ctrl+W 닫기 / Alt+1..9·Alt+←→ 전환 안내 포함.", "maps_to": {"flag": null, "value": null}}
+          ]
+        },
+        {
+          "id": "use_par",
+          "header": "탭 내 병렬",
+          "question": "탭 안에서 :par a ; b ; c 로 CPU 코어 병렬 실행을 쓰실 건가요?",
+          "multiSelect": false,
+          "options": [
+            {"label": "예", "value": "yes", "description": ":par 구문으로 명령을 코어 수만큼 분산. 워커=PrivateTerminal 스레드.", "maps_to": {"flag": null, "value": null}},
+            {"label": "아니오", "value": "no", "description": "단일 명령 위주로 사용.", "maps_to": {"flag": null, "value": null}}
+          ]
+        }
+      ]
+    },
+
+    "exec": {
+      "summary": "단발 명령을 private 세션 한 번으로 실행하고 종료.",
+      "command_template": "surfing-ai exec \"{command_string}\"",
+      "requires": ["node>=18", "python3"],
+      "questions": [
+        {
+          "id": "command_string",
+          "header": "실행 명령",
+          "question": "어떤 명령을 한 번 실행할까요? (allowlist 통과 필요, rm -rf·git push 등은 BLOCKED)",
+          "multiSelect": false,
+          "requires_input": "command_string",
+          "options": [
+            {"label": "git status", "value": "git status", "description": "예시: 저장소 상태 확인.", "maps_to": {"flag": null, "value": "git status"}},
+            {"label": "직접 입력", "value": "custom", "description": "임의 명령 직접 입력.", "maps_to": {"flag": null, "value": "{command_string}"}, "requires_input": "command_string"}
+          ]
+        }
+      ]
+    },
+
+    "par": {
+      "summary": "여러 명령을 CPU 워커에 병렬 분산 실행 (max-procs --run 패스스루).",
+      "command_template": "surfing-ai par {command_list}",
+      "requires": ["node>=18", "python3"],
+      "questions": [
+        {
+          "id": "command_list",
+          "header": "병렬 명령",
+          "question": "병렬로 실행할 명령들을 알려주세요 (각 항목이 따옴표로 감싼 하나의 명령).",
+          "multiSelect": false,
+          "requires_input": "command_list",
+          "options": [
+            {"label": "직접 입력", "value": "custom", "description": "예: \"git status\" \"ls -la\" \"python3 -V\"", "maps_to": {"flag": null, "value": "{command_list}"}, "requires_input": "command_list"}
+          ]
+        }
+      ]
+    },
+
+    "terminal-private": {
+      "summary": "단일 가드형 REPL (tmux/멀티탭 없이 평문 1개).",
+      "command_template": "surfing-ai terminal-private [--mode {mode}] [--root {root}]",
+      "requires": ["python3"],
+      "questions": [
+        {"$ref": "shared_questions.mode"},
+        {"$ref": "shared_questions.root"}
+      ]
+    },
+
+    "tmux-private": {
+      "summary": "4-pane tmux 워크스페이스.",
+      "command_template": "surfing-ai tmux-private [--mode {mode}] [--root {root}] [--dry-run]",
+      "requires": ["python3", "tmux"],
+      "fallback_if_no_tmux": "tmux 미설치 시 terminal-private 로 폴백 안내가 출력됩니다.",
+      "questions": [
+        {"$ref": "shared_questions.mode"},
+        {"$ref": "shared_questions.root"},
+        {
+          "id": "dry_run",
+          "header": "Dry-run",
+          "question": "실제로 띄우기 전에 어떤 pane이 생성될지 dry-run으로 먼저 볼까요?",
+          "multiSelect": false,
+          "options": [
+            {"label": "아니오 (바로 실행)", "value": "no", "description": "tmux 세션을 즉시 생성.", "maps_to": {"flag": null, "value": null}, "default": true},
+            {"label": "예 (dry-run)", "value": "yes", "description": "생성 계획만 출력, 실행 안 함.", "maps_to": {"flag": "--dry-run", "value": true}}
+          ]
+        }
+      ]
+    },
+
+    "max-procs": {
+      "summary": "CPU 코어당 1 REPL 그리드(tmux) 또는 --run 으로 헤드리스 병렬 실행.",
+      "command_template": "surfing-ai max-procs [--panes {panes}] [--threads {threads}] [--mode {mode}] [--root {root}] [--dry-run] [--run {run}]",
+      "requires": ["python3", "tmux (그리드 모드에서)"],
+      "questions": [
+        {
+          "id": "run_or_grid",
+          "header": "실행 형태",
+          "question": "tmux 그리드(화면)로 띄울까요, 아니면 --run 헤드리스 병렬로 실행할까요?",
+          "multiSelect": false,
+          "options": [
+            {"label": "tmux 그리드", "value": "grid", "description": "코어 수만큼 pane을 가진 tmux 그리드. tmux 필요.", "maps_to": {"flag": null, "value": null}},
+            {"label": "헤드리스 --run", "value": "run", "description": "명령들을 N개 private 터미널에 병렬 실행하고 종료. tmux 불필요.", "maps_to": {"flag": "--run", "value": "{run}"}, "requires_input": "run"}
+          ]
+        },
+        {
+          "id": "sizing",
+          "header": "워커 수 결정",
+          "question": "워커 수를 스레드 사용량(%)으로 정할까요, 정확한 개수로 정할까요?",
+          "multiSelect": false,
+          "options": [
+            {"label": "스레드 % (권장)", "value": "percent", "description": "20/50/70/100% 중 선택 → 논리 스레드에 비례.", "maps_to": {"flag": null, "value": null}},
+            {"label": "정확한 개수", "value": "exact", "description": "pane/워커 개수를 정수로 직접 지정.", "maps_to": {"flag": null, "value": null}}
+          ]
+        },
+        {"$ref": "shared_questions.thread_budget", "ask_if": {"sizing": ["percent"]}},
+        {
+          "id": "panes",
+          "header": "워커 수",
+          "ask_if": {"sizing": ["exact"]},
+          "question": "pane/워커 개수를 입력하세요 (기본: 코어-1).",
+          "multiSelect": false,
+          "options": [
+            {"label": "기본 (코어-1)", "value": "default", "description": "CPU 코어 수 - 1.", "maps_to": {"flag": null, "value": null}, "omit_when_default": true, "default": true},
+            {"label": "직접 지정", "value": "custom", "description": "정수 입력.", "maps_to": {"flag": "--panes", "value": "{panes}"}, "requires_input": "panes"}
+          ]
+        },
+        {"$ref": "shared_questions.mode"},
+        {"$ref": "shared_questions.root"}
+      ]
+    },
+
+    "desktop": {
+      "summary": "로컬호스트 브라우저 UI + JSON API 데스크톱 브리지.",
+      "command_template": "surfing-ai desktop [--host {host}] [--port {port}] [--token {token}] [--open]",
+      "requires": ["python3"],
+      "questions": [
+        {
+          "id": "open",
+          "header": "브라우저 열기",
+          "question": "기본 브라우저에서 UI를 자동으로 열까요?",
+          "multiSelect": false,
+          "options": [
+            {"label": "예 (--open)", "value": "yes", "description": "서버 시작 후 브라우저 자동 오픈.", "maps_to": {"flag": "--open", "value": true}},
+            {"label": "아니오", "value": "no", "description": "URL만 출력.", "maps_to": {"flag": null, "value": null}, "default": true}
+          ]
+        },
+        {
+          "id": "host_port",
+          "header": "호스트/포트",
+          "question": "바인드 주소/포트를 기본(127.0.0.1:4175)으로 둘까요?",
+          "multiSelect": false,
+          "options": [
+            {"label": "기본값", "value": "default", "description": "127.0.0.1:4175. 외부 연결 없음.", "maps_to": {"flag": null, "value": null}, "omit_when_default": true, "default": true},
+            {"label": "포트 변경", "value": "port", "description": "포트만 변경. 정수 입력.", "maps_to": {"flag": "--port", "value": "{port}"}, "requires_input": "port"},
+            {"label": "호스트+포트 변경", "value": "both", "description": "호스트와 포트 모두 지정.", "maps_to": [{"flag": "--host", "value": "{host}"}, {"flag": "--port", "value": "{port}"}], "requires_input": ["host", "port"]}
+          ]
+        },
+        {
+          "id": "token",
+          "header": "공유 토큰",
+          "question": "API 공유 토큰을 랜덤 생성(기본)할까요, 직접 지정할까요?",
+          "multiSelect": false,
+          "options": [
+            {"label": "랜덤 (기본)", "value": "random", "description": "시작 시 1회 출력되는 랜덤 토큰.", "maps_to": {"flag": null, "value": null}, "omit_when_default": true, "default": true},
+            {"label": "직접 지정", "value": "custom", "description": "고정 토큰 입력.", "maps_to": {"flag": "--token", "value": "{token}"}, "requires_input": "token"}
+          ]
+        }
+      ]
+    },
+
+    "approvals": {
+      "summary": "승인 큐 조회/승인/거부.",
+      "command_template": "surfing-ai approvals {action} [{id}] [--reason {reason}]",
+      "requires": ["python3"],
+      "questions": [
+        {
+          "id": "action",
+          "header": "동작",
+          "question": "승인 큐에서 무엇을 하시겠어요?",
+          "multiSelect": false,
+          "options": [
+            {"label": "list", "value": "list", "description": "대기 중 항목 나열. id 불필요.", "maps_to": {"flag": null, "value": "list"}},
+            {"label": "approve", "value": "approve", "description": "특정 id 승인. id 필요.", "maps_to": {"flag": null, "value": "approve"}, "requires_input": "id"},
+            {"label": "deny", "value": "deny", "description": "특정 id 거부. id + 사유(선택).", "maps_to": {"flag": null, "value": "deny"}, "requires_input": "id"}
+          ]
+        },
+        {
+          "id": "id",
+          "header": "항목 ID",
+          "question": "(approve/deny 시) 대상 항목 id를 입력하세요.",
+          "ask_if": {"action": ["approve", "deny"]},
+          "multiSelect": false,
+          "requires_input": "id",
+          "options": [
+            {"label": "id 입력", "value": "custom", "description": "정수 id.", "maps_to": {"flag": null, "value": "{id}"}, "requires_input": "id"}
+          ]
+        },
+        {
+          "id": "reason",
+          "header": "거부 사유",
+          "question": "(deny 시) 거부 사유를 적을까요?",
+          "ask_if": {"action": ["deny"]},
+          "multiSelect": false,
+          "options": [
+            {"label": "사유 없음", "value": "none", "description": "사유 생략.", "maps_to": {"flag": null, "value": null}, "default": true},
+            {"label": "사유 입력", "value": "custom", "description": "텍스트 사유 추가.", "maps_to": {"flag": "--reason", "value": "{reason}"}, "requires_input": "reason"}
+          ]
+        }
+      ]
+    },
+
+    "backend-health": {
+      "summary": "안전 어휘 백엔드 상태 점검. 인자 없음.",
+      "command_template": "surfing-ai backend-health",
+      "requires": ["python3"],
+      "questions": []
+    }
+  }
+}
