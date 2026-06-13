@@ -14,8 +14,10 @@ Design choices:
 
 from __future__ import annotations
 
+import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 
 # The levels the user can pick from (percent of logical threads).
 LEVELS: tuple[int, ...] = (20, 50, 60, 70, 80, 90, 100)
@@ -57,6 +59,17 @@ def normalize_level(value) -> int:
 def resolve_workers(level, total: int | None = None) -> int:
     """High-level entry: level (20/50/70/100/'max') -> worker count."""
     return workers_for_percent(normalize_level(level), total)
+
+
+def saved_level(workdir: str | Path) -> int | None:
+    """Read a thread_budget.json written by the menu-bar / tray, if any."""
+    try:
+        data = json.loads(
+            (Path(workdir) / "thread_budget.json").read_text())
+        percent = int(data.get("percent"))
+        return percent if 0 < percent <= 100 else None
+    except Exception:
+        return None
 
 
 @dataclass(frozen=True)

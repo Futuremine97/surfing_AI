@@ -1,13 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Surfing AI">
   <defs>
-    <linearGradient id="ocean" x1="8" y1="7" x2="40" y2="42" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#50e8ff"/>
-      <stop offset=".52" stop-color="#2f83ff"/>
-      <stop offset="1" stop-color="#7568ff"/>
+    <linearGradient id="sky" x1="24" y1="3" x2="24" y2="30" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4a2a78"/>
+      <stop offset=".5" stop-color="#ff6384"/>
+      <stop offset="1" stop-color="#ffb878"/>
     </linearGradient>
+    <linearGradient id="sea" x1="24" y1="29" x2="24" y2="45" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#27c9c7"/>
+      <stop offset="1" stop-color="#0a4080"/>
+    </linearGradient>
+    <clipPath id="sq"><rect x="2" y="2" width="44" height="44" rx="13"/></clipPath>
   </defs>
-  <rect x="2" y="2" width="44" height="44" rx="14" fill="#071824"/>
-  <path d="M9 28.2c5.2-6.7 10.3-8.1 15.4-4.2 4.1 3.1 7.8 3 14.6-.8-2.7 8.2-8.2 12.3-16.4 12.3-5.8 0-10.3-2.4-13.6-7.3Z" fill="url(#ocean)"/>
-  <path d="M10 25.7c5.9-7.7 11.7-9.2 17.3-4.4 3.1 2.6 6.5 2.7 10.7.4-4.5.3-7.3-1.2-8.6-4.5-1.7-4.4-5.9-6.1-10.2-3.6-4.1 2.4-7.2 6.4-9.2 12.1Z" fill="#e9fbff"/>
-  <circle cx="35.5" cy="12.5" r="3.5" fill="#45e6c1"/>
+  <g clip-path="url(#sq)">
+    <rect x="2" y="2" width="44" height="28" fill="url(#sky)"/>
+    <circle cx="24" cy="25" r="6" fill="#ffe7a8"/>
+    <rect x="2" y="29" width="44" height="17" fill="url(#sea)"/>
+    <path d="M2 36c8-3 14 3 22 0s14-3 20 0v10H2Z" fill="#0d5aa0"/>
+    <path d="M2 38c8-2.5 14 2.5 22 0s14-2.5 20 0" fill="none" stroke="#e9fbff" stroke-width="1.2"/>
+    <path d="M11 39c-.4-5 .4-9 1.2-12 .3 2.6 2 4 4.6 4.2-2.2.3-3.4 1.6-3.9 3.9-.3-1.9-1-2.9-1.9-3.1Z" fill="#101c2e"/>
+  </g>
+  <rect x="2" y="2" width="44" height="44" rx="13" fill="none" stroke="#ffffff" stroke-opacity=".12"/>
 </svg>

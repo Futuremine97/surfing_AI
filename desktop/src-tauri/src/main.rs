@@ -28,9 +28,58 @@ use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::Mutex;
 
+use tauri::menu::{MenuBuilder, PredefinedMenuItem, SubmenuBuilder};
+use tauri::tray::TrayIconBuilder;
 use tauri::{Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
 
 struct Sidecar(Mutex<Option<Child>>);
+
+/// Shared launch context the tray menu needs to act on.
+struct AppCtx {
+    url: String,
+    root: PathBuf,
+    workdir: PathBuf,
+}
+
+const THREAD_LEVELS: [u32; 7] = [20, 50, 60, 70, 80, 90, 100];
+
+/// Open (or focus) the console webview window.
+fn open_console(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        let _ = win.show();
+        let _ = win.set_focus();
+        return;
+    }
+    if let Some(ctx) = app.try_state::<AppCtx>() {
+        let _ = WebviewWindowBuilder::new(
+            app,
+            "main",
+            WebviewUrl::External(ctx.url.parse().unwrap()),
+        )
+        .title("Surfing AI — Private Desktop")
+        .inner_size(1280.0, 820.0)
+        .min_inner_size(900.0, 600.0)
+        .build();
+    }
+}
+
+/// Persist the chosen thread-budget level so the harness can honor it.
+fn save_thread_level(workdir: &std::path::Path, percent: u32) {
+    let _ = std::fs::create_dir_all(workdir);
+    let body = format!("{{\"percent\": {percent}}}\n");
+    let _ = std::fs::write(workdir.join("thread_budget.json"), body);
+}
+
+/// Run a one-shot harness command and return trimmed stdout.
+fn run_harness(root: &std::path::Path, args: &[&str]) -> String {
+    Command::new(python_binary())
+        .arg(root.join("scripts").join("surfing_ai"))
+        .args(args)
+        .current_dir(root)
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|e| format!("error: {e}"))
+}
 
 fn free_port() -> u16 {
     TcpListener::bind("127.0.0.1:0")
@@ -88,6 +137,68 @@ fn resolve_dirs(app: &tauri::AppHandle) -> (PathBuf, PathBuf) {
     (dev.clone(), dev)
 }
 
+/// Build the menu-bar (system tray) icon and its dropdown.
+fn build_tray(app: &tauri::AppHandle) -> tauri::Result<()> {
+    // thread-budget submenu (one checkable item per level; the tooltip
+    // reflects the active selection so the loop stays exclusive-free).
+    let mut tb = SubmenuBuilder::new(app, "Thread Budget");
+    for p in THREAD_LEVELS {
+        tb = tb.check(format!("threads:{p}"), format!("{p}%"));
+    }
+    let threads = tb.build()?;
+
+    let quit = PredefinedMenuItem::quit(app, Some("Quit Surfing AI"))?;
+
+    let menu = MenuBuilder::new(app)
+        .text("open", "Open Surfing AI")
+        .separator()
+        .item(&threads)
+        .text("health", "Backend Health")
+        .text("approvals", "Approvals Queue…")
+        .separator()
+        .item(&quit)
+        .build()?;
+
+    // monochrome wave glyph, recolored by macOS for the menu bar
+    let glyph = tauri::image::Image::from_bytes(include_bytes!(
+        "../../menubar/assets/menubar_template@2x.png"))?;
+
+    TrayIconBuilder::with_id("surfing_tray")
+        .icon(glyph)
+        .icon_as_template(true)
+        .tooltip("Surfing AI — private workspace")
+        .menu(&menu)
+        .on_menu_event(move |app, event| {
+            let id = event.id().as_ref();
+            if id == "open" {
+                open_console(app);
+            } else if id == "health" {
+                if let Some(ctx) = app.try_state::<AppCtx>() {
+                    let summary = run_harness(&ctx.root, &["backend-health"]);
+                    if let Some(tray) = app.tray_by_id("surfing_tray") {
+                        let first = summary.lines().next().unwrap_or("ok");
+                        let _ = tray.set_tooltip(Some(format!(
+                            "Surfing AI — {first}")));
+                    }
+                }
+            } else if id == "approvals" {
+                open_console(app);
+            } else if let Some(p) = id.strip_prefix("threads:") {
+                if let (Ok(percent), Some(ctx)) =
+                    (p.parse::<u32>(), app.try_state::<AppCtx>())
+                {
+                    save_thread_level(&ctx.workdir, percent);
+                    if let Some(tray) = app.tray_by_id("surfing_tray") {
+                        let _ = tray.set_tooltip(Some(format!(
+                            "Surfing AI — thread budget {percent}%")));
+                    }
+                }
+            }
+        })
+        .build(app)?;
+    Ok(())
+}
+
 fn main() {
     let port = free_port();
     let token = random_token();
@@ -110,6 +221,14 @@ fn main() {
                 .expect("could not start the Python bridge — \
                          Surfing AI Desktop requires python3 on PATH");
             *app.state::<Sidecar>().0.lock().unwrap() = Some(child);
+
+            app.manage(AppCtx {
+                url: url.clone(),
+                root: root.clone(),
+                workdir: workdir.clone(),
+            });
+
+            build_tray(app.handle())?;
 
             // give the bridge a moment to bind before first load
             std::thread::sleep(std::time::Duration::from_millis(700));

@@ -147,7 +147,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"thread budget: {args.threads} of {logical_threads()} "
                   f"logical threads -> {count} worker(s)")
         else:
-            count = max_processes()
+            from harness.thread_budget import resolve_workers, saved_level
+            lvl = saved_level(args.root)
+            if lvl:
+                count = resolve_workers(lvl)
+                print(f"thread budget (saved {lvl}%) -> {count} worker(s)")
+            else:
+                count = max_processes()
         if args.run:
             runner = ParallelRunner(root=args.root, mode=args.mode,
                                     workers=count)

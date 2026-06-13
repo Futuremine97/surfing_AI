@@ -173,3 +173,52 @@ manual command per terminal window. Every parallel worker is a full
 PrivateTerminal with its own tagged audit directory, so the allowlist,
 file guard, redaction, and `files_sent_external = 0` invariants hold at
 any parallelism.
+
+## Menu-bar app (top-right status item)
+
+Surfing AI lives in the macOS menu bar in two interchangeable forms;
+both expose the same dropdown — **Open Surfing AI**, a **Thread Budget**
+submenu (20/50/60/70/80/90/100%), **Backend Health**, **Approvals
+Queue…**, and **Quit**.
+
+1. **Tauri tray (native).** `desktop/src-tauri/src/main.rs` builds an
+   `NSStatusItem` via `TrayIconBuilder` with a monochrome template wave
+   glyph (`desktop/menubar/assets/menubar_template@2x.png`,
+   `icon_as_template(true)` so macOS recolors it for light/dark bars).
+   Selecting a thread level writes `~/SurfingAI/thread_budget.json`;
+   Backend Health runs the harness and surfaces the summary in the tray
+   tooltip. Needs the `tray-icon` + `image-png` Tauri features (already
+   in `Cargo.toml`).
+
+2. **Lite rumps app (dock-less).** `desktop/menubar/surfing_menubar.py`
+   is a standalone `rumps` status-bar app with `LSUIElement = true` (no
+   Dock icon, no app-switcher entry). It owns the same Python bridge.
+
+   ```bash
+   pip install rumps pyobjc
+   python3 desktop/menubar/surfing_menubar.py        # run from a checkout
+   python3 scripts/build_menubar_app.py --output dist # bundle "Surfing AI Menu Bar.app"
+   python3 scripts/build_menubar_app.py --output dist --dmg
+   ```
+
+The chosen thread budget is honored by the harness: `surfing-ai
+max-procs` with no `--threads`/`--panes` reads
+`thread_budget.json` from its `--root` and sizes the worker pool from it
+(`harness/thread_budget.saved_level`).
+
+## App icon
+
+The icon is a modern, flat California / San Diego sunset-surf mark
+(sunset sky, low sun, turquoise→navy ocean swells with foam, a leaning
+palm silhouette). It is generated reproducibly — no binary art to
+hand-edit:
+
+```bash
+python3 scripts/make_icon.py
+```
+
+This renders `desktop/src-tauri/icons/` (`icon.png` 1024², the
+16/32/64/128/256 PNGs, `icon.icns`, `icon.ico`), the menu-bar template
+glyph under `desktop/menubar/assets/`, and refreshes `web/mark.svg` to
+match. Both the Tauri bundle and the lite `.app` builders pick up
+`icon.icns` automatically.
