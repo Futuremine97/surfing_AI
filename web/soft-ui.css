@@ -1,0 +1,200 @@
+/* Surfing AI — Soft UI / Neumorphism theme.
+ *
+ * Minimalism + skeuomorphism: a calm light surface where every element is
+ * extruded from (or pressed into) the same material with paired soft
+ * shadows — one dark, one light — instead of borders and hard fills.
+ *
+ * Loaded AFTER styles.css; it remaps the design tokens to a light palette
+ * and gives the shared components (panels, cards, buttons, inputs, badges,
+ * header, nav) tactile depth. Remove the <link> to revert to the dark UI.
+ */
+
+:root {
+  /* --- material --- */
+  --su-bg: #e7ebf3;
+  --su-bg-2: #dfe4ee;
+  --su-surface: #eceff5;
+  --su-dark: #c3c9d6;          /* lower-right cast shadow      */
+  --su-light: #ffffff;         /* upper-left highlight          */
+  --su-ink: #33445c;           /* primary text                  */
+  --su-muted: #7d8aa1;         /* secondary text                */
+  --su-accent: #2bb6a3;        /* teal (sea)                    */
+  --su-accent-2: #3aa0e6;      /* cyan                          */
+  --su-coral: #ff8b73;
+  --su-radius: 18px;
+
+  --su-out: 7px 7px 16px var(--su-dark), -7px -7px 16px var(--su-light);
+  --su-out-sm: 4px 4px 9px var(--su-dark), -4px -4px 9px var(--su-light);
+  --su-in: inset 4px 4px 9px var(--su-dark),
+           inset -4px -4px 9px var(--su-light);
+  --su-in-sm: inset 2px 2px 5px var(--su-dark),
+              inset -2px -2px 5px var(--su-light);
+
+  /* --- remap the base tokens used throughout styles.css --- */
+  --ink: var(--su-bg);
+  --ink-soft: var(--su-surface);
+  --panel: var(--su-surface);
+  --panel-2: var(--su-bg-2);
+  --line: rgba(120, 140, 170, 0.16);
+  --line-dark: rgba(120, 140, 170, 0.16);
+  --text: var(--su-ink);
+  --muted: var(--su-muted);
+  --lime: var(--su-accent);
+  --lime-dark: #1f9486;
+  --cyan: var(--su-accent-2);
+}
+
+/* ---------- canvas ---------- */
+body,
+.landing-body {
+  background:
+    radial-gradient(circle at 50% -10%, #f3f6fb, transparent 40rem),
+    var(--su-bg) !important;
+  color: var(--su-ink);
+}
+
+/* ---------- header ---------- */
+.site-header {
+  border: 0;
+  background: var(--su-surface);
+  backdrop-filter: none;
+  box-shadow: var(--su-out);
+}
+.site-nav, .text-link { color: var(--su-muted); }
+.site-nav a:hover, .text-link:hover { color: var(--su-ink); }
+
+/* ---------- eyebrow / pills ---------- */
+.eyebrow {
+  border: 0;
+  color: var(--su-muted);
+  background: var(--su-surface);
+  box-shadow: var(--su-in-sm);
+}
+
+/* ---------- buttons ---------- */
+.button {
+  border: 0;
+  background: var(--su-surface);
+  color: var(--su-ink);
+  box-shadow: var(--su-out-sm);
+  transition: box-shadow 160ms ease, transform 160ms ease, color 160ms ease;
+}
+.button:hover { transform: translateY(-1px); box-shadow: var(--su-out); }
+.button:active { box-shadow: var(--su-in-sm); transform: translateY(0); }
+
+.button-primary,
+.button-small {
+  background: linear-gradient(145deg, #33c6b2, #209384);
+  color: #ffffff;
+  box-shadow: var(--su-out-sm), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.button-primary:hover,
+.button-small:hover {
+  background: linear-gradient(145deg, #39d2bd, #1f9486);
+  box-shadow: var(--su-out), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+.button-secondary { background: var(--su-surface); color: var(--su-ink); }
+
+/* ---------- generic panels / cards ---------- */
+.glass-panel,
+.console-panel,
+.data-card,
+.route-panel,
+.trace-card,
+.release-overview,
+.scan-result,
+.result-summary,
+.runtime-selector,
+.connection-list,
+.loading-state {
+  border: 0 !important;
+  background: var(--su-surface) !important;
+  backdrop-filter: none !important;
+  border-radius: var(--su-radius);
+  box-shadow: var(--su-out);
+}
+
+/* nested cards read as pressed-in wells */
+.data-card .data-card,
+.glass-panel .data-card,
+.console-panel .data-card,
+.trace-list .trace-card {
+  box-shadow: var(--su-in-sm);
+  background: var(--su-bg) !important;
+}
+
+.panel-heading, .data-card-head, .panel-number { color: var(--su-ink); }
+.field-label, .sidebar-note { color: var(--su-muted); }
+
+/* ---------- badges / chips ---------- */
+.data-badge, .result-badges span, .data-badge * {
+  border: 0;
+  color: var(--su-muted);
+  background: var(--su-surface);
+  box-shadow: var(--su-in-sm);
+}
+
+/* ---------- nav rail items ---------- */
+.console-nav-item {
+  border: 0;
+  color: var(--su-muted);
+  background: var(--su-surface);
+  border-radius: 14px;
+  box-shadow: var(--su-out-sm);
+  transition: box-shadow 150ms ease, color 150ms ease;
+}
+.console-nav-item:hover { color: var(--su-ink); }
+.console-nav-item.active {
+  color: var(--su-accent);
+  box-shadow: var(--su-in-sm);
+}
+.nav-icon { filter: none; }
+
+/* ---------- inputs ---------- */
+input, textarea, select, .terminal-input {
+  border: 0 !important;
+  color: var(--su-ink);
+  background: var(--su-bg) !important;
+  border-radius: 12px;
+  box-shadow: var(--su-in-sm);
+}
+input::placeholder, textarea::placeholder { color: #a4afc2; }
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  box-shadow: var(--su-in-sm),
+              0 0 0 2px rgba(43, 182, 163, 0.35);
+}
+
+/* ---------- toggles / switches (runtime-option, shield, etc.) ---------- */
+.runtime-option {
+  border: 0;
+  background: var(--su-surface);
+  border-radius: 14px;
+  box-shadow: var(--su-out-sm);
+}
+.runtime-option.active {
+  box-shadow: var(--su-in-sm);
+  color: var(--su-accent);
+}
+
+/* ---------- loaders / gauges keep accent, lose hard borders ---------- */
+.loader-ring, .orbit, .scan-gauge { border-color: rgba(43,182,163,.25); }
+.status-dot, .pulse-dot {
+  background: var(--su-accent);
+  box-shadow: 0 0 10px rgba(43, 182, 163, 0.6);
+}
+
+/* ---------- hero glows: soften for the light canvas ---------- */
+.hero::before { opacity: 0.05; }
+.hero-glow-one { background: rgba(43, 182, 163, 0.10); }
+.hero-glow-two { background: rgba(58, 160, 230, 0.08); }
+.hero h1 { color: var(--su-ink); }
+
+/* ---------- scrollbars ---------- */
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-thumb {
+  border: 3px solid var(--su-bg);
+  border-radius: 10px;
+  background: #cdd4e0;
+}
+::-webkit-scrollbar-track { background: transparent; }

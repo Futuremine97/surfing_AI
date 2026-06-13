@@ -138,6 +138,72 @@
   #status .ok { color: var(--green); }
   #status .bad { color: var(--red); }
 </style>
+<style id="soft-ui">
+  /* Soft UI / Neumorphism — minimalism + skeuomorphism.
+     Light material, paired soft shadows instead of borders. */
+  :root {
+    --bg: #e7ebf3; --panel: #eceff5; --border: rgba(120,140,170,.16);
+    --text: #33445c; --dim: #7d8aa1; --accent: #1f9486;
+    --green: #1f9486; --red: #e2604f; --yellow: #c98a1d;
+    --su-dark: #c3c9d6; --su-light: #ffffff;
+    --su-out: 6px 6px 14px var(--su-dark), -6px -6px 14px var(--su-light);
+    --su-out-sm: 3px 3px 7px var(--su-dark), -3px -3px 7px var(--su-light);
+    --su-in: inset 3px 3px 7px var(--su-dark),
+             inset -3px -3px 7px var(--su-light);
+  }
+  body { background:
+    radial-gradient(circle at 50% -10%, #f3f6fb, transparent 36rem),
+    var(--bg); }
+
+  #bar { background: var(--panel); border-bottom: 0; box-shadow: var(--su-out-sm);
+         padding: 9px 12px; gap: 10px; z-index: 5; }
+  select, button { background: var(--panel); border: 0; border-radius: 11px;
+                   box-shadow: var(--su-out-sm); color: var(--text);
+                   padding: 6px 11px;
+                   transition: box-shadow .15s ease, color .15s ease; }
+  button:hover { border-color: transparent; box-shadow: var(--su-out); }
+  button:active { box-shadow: var(--su-in); }
+  #maxbtn { color: var(--yellow); }
+
+  .split { background: transparent; gap: 14px; padding: 14px; }
+  .pane { background: var(--panel); outline: 0; border-radius: 16px;
+          overflow: hidden; box-shadow: var(--su-out); }
+  .pane.focused { outline: 0; box-shadow: var(--su-out),
+                  0 0 0 2px rgba(31,148,134,.45); }
+  .pane h2 { background: transparent; border-bottom: 0; color: var(--dim);
+             padding: 9px 13px 4px; }
+  .pane h2 .mode { color: var(--accent); }
+  .body { padding: 8px 13px 12px; }
+
+  form.repl { border-top: 0; padding: 8px; }
+  form.repl input { background: var(--bg); border-radius: 11px;
+                    box-shadow: var(--su-in); padding: 8px 12px;
+                    color: var(--text); }
+  form.repl .prompt { color: var(--green); align-self: center;
+                      padding-left: 4px; }
+
+  .approval-card, .cap-summary, .gauge-card, .gauge-current-bar,
+  .g-set, .g-lock, .tg {
+    border: 0 !important; border-radius: 12px; background: var(--panel);
+    box-shadow: var(--su-out-sm); }
+  .approval-card pre { background: var(--bg); border-radius: 10px;
+                       padding: 8px; box-shadow: var(--su-in); }
+  .gauge-card.active { box-shadow: var(--su-in); }
+  .tg.on { color: var(--green); } .tg.off { color: var(--dim); }
+  .approve { color: var(--green); } .deny { color: var(--red); }
+
+  #ctx { background: var(--panel); border: 0; border-radius: 14px;
+         box-shadow: var(--su-out); padding: 6px; }
+  #ctx .item:hover { background: var(--bg); color: var(--accent);
+                     box-shadow: var(--su-in); }
+  #ctx .sep { background: var(--border); }
+
+  #status { background: var(--panel); border-top: 0;
+            box-shadow: var(--su-out-sm); padding: 6px 12px; }
+  ::-webkit-scrollbar { width: 11px; height: 11px; }
+  ::-webkit-scrollbar-thumb { background: #cdd4e0; border-radius: 9px;
+                              border: 3px solid var(--bg); }
+</style>
 </head>
 <body>
   <div id="bar">

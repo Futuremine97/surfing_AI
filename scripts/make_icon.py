@@ -221,11 +221,6 @@ def main():
               sizes=[(16, 16), (32, 32), (48, 48), (64, 64),
                      (128, 128), (256, 256)])
 
-    # preview on a neutral checker-free card for review
-    prev = Image.new("RGBA", (S + 160, S + 160), (236, 238, 242, 255))
-    prev.alpha_composite(icon, (80, 80))
-    prev.convert("RGB").save(ICON_DIR / "icon_preview.png")
-
     # ---- menu-bar template glyph (monochrome, alpha) ----
     make_menubar_glyph()
 
@@ -246,22 +241,30 @@ def make_menubar_glyph():
     for scale, name in ((1, "menubar_template.png"),
                         (2, "menubar_template@2x.png")):
         n = base * scale
-        g = Image.new("RGBA", (n, n), (0, 0, 0, 0))
+        ss = 4                       # supersample for clean curves
+        N = n * ss
+        g = Image.new("RGBA", (N, N), (0, 0, 0, 0))
         d = ImageDraw.Draw(g)
-        th = max(2, int(n * 0.085))
-        for k, yb in enumerate((0.42, 0.60)):
-            pts = []
-            for i in range(n + 1):
-                x = i
-                y = n * yb + math.sin((i / n) * 2 * math.pi + k * 1.6) \
-                    * n * 0.11
-                pts.append((x, y))
-            d.line(pts, fill=(0, 0, 0, 255), width=th, joint="curve")
-        # small sun dot
-        r = int(n * 0.07)
-        d.ellipse([n * 0.74 - r, n * 0.27 - r, n * 0.74 + r, n * 0.27 + r],
-                  fill=(0, 0, 0, 255))
-        g.save(MENUBAR_DIR / name)
+        th = max(2, int(N * 0.075))
+        # one minimal swell, rounded caps, sitting in the lower half
+        pts = []
+        for i in range(N + 1):
+            t = i / N
+            y = N * 0.62 + math.sin(t * 2 * math.pi) * N * 0.16
+            pts.append((i, y))
+        # trim to leave a little side margin
+        m = int(N * 0.10)
+        pts = [(x, y) for (x, y) in pts if m <= x <= N - m]
+        d.line(pts, fill=(0, 0, 0, 255), width=th, joint="curve")
+        for cap in (pts[0], pts[-1]):
+            r = th / 2
+            d.ellipse([cap[0] - r, cap[1] - r, cap[0] + r, cap[1] + r],
+                      fill=(0, 0, 0, 255))
+        # a single sun dot above the crest
+        r = int(N * 0.075)
+        cx, cy = N * 0.5, N * 0.26
+        d.ellipse([cx - r, cy - r, cx + r, cy + r], fill=(0, 0, 0, 255))
+        g.resize((n, n), Image.LANCZOS).save(MENUBAR_DIR / name)
 
 
 WEB_MARK_SVG = """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="Surfing AI">

@@ -206,6 +206,31 @@ max-procs` with no `--threads`/`--panes` reads
 `thread_budget.json` from its `--root` and sizes the worker pool from it
 (`harness/thread_budget.saved_level`).
 
+`desktop/menubar/popover.html` is the soft-UI status popover design
+(neumorphic thread-budget pills, health well, Open/Approvals/Quit). It is
+self-contained and can be loaded in a small webview; actions are bridged
+via `window.surfing.invoke(cmd)` or the `surfing://<cmd>` scheme.
+
+## Visual design — soft UI / neumorphism
+
+The web surfaces and the desktop UI share a minimalist-skeuomorphic
+"soft UI" look: a single light material where elements are extruded or
+pressed in with paired soft shadows (one dark, one light) instead of
+borders and hard fills.
+
+- `web/soft-ui.css` remaps the design tokens to a light palette and gives
+  the shared components (panels, cards, buttons, inputs, badges, header,
+  nav rail) tactile depth. It is linked after `styles.css` in
+  `web/index.html` and `web/app.html`; remove the `<link>` to revert to
+  the original dark theme.
+- `desktop/ui/index.html` carries an appended `#soft-ui` style block that
+  remaps its CSS variables to the same light material and adds soft
+  shadows to the bar, panes, REPL input, gauges, context menu, and status
+  bar.
+- The menu-bar glyph is a single minimal swell with a sun dot
+  (`make_icon.py` → `desktop/menubar/assets/`), drawn as a template image
+  so macOS recolors it for light/dark menu bars.
+
 ## App icon
 
 The icon is a modern, flat California / San Diego sunset-surf mark
