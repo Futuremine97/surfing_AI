@@ -87,6 +87,39 @@
   .vocab-not_configured { color: var(--yellow); }
   .empty { color: var(--dim); padding: 14px; text-align: center; }
 
+  /* security gauge pane */
+  .gauge-pane { padding: 12px 10px; overflow-y: auto; }
+  .gauge-grid { display: flex; gap: 10px; flex-wrap: wrap;
+                justify-content: center; margin-bottom: 14px; }
+  .gauge-card { display: flex; flex-direction: column; align-items: center;
+                background: #161b22; border: 1px solid var(--border);
+                border-radius: 10px; padding: 10px 8px 8px;
+                min-width: 110px; flex: 1; max-width: 150px;
+                cursor: pointer; transition: border-color .15s; }
+  .gauge-card.active { border-color: var(--accent); }
+  .gauge-card.locked { opacity: .6; }
+  .gauge-card:hover { border-color: var(--dim); }
+  .gauge-card.active:hover { border-color: var(--accent); }
+  .gauge-label { font-size: 10px; font-weight: 700; letter-spacing: .08em;
+                 margin-bottom: 4px; text-transform: uppercase; }
+  .gauge-svg { width: 100%; max-width: 120px; height: 70px;
+               touch-action: none; cursor: grab; }
+  .gauge-desc { font-size: 9px; color: var(--dim); text-align: center;
+                margin: 4px 0 6px; line-height: 1.4; min-height: 26px; }
+  .gauge-models { font-size: 9px; color: var(--dim); text-align: center;
+                  margin-bottom: 6px; word-break: break-word; }
+  .gauge-btns { display: flex; gap: 6px; }
+  .g-set  { font-size: 10px; padding: 2px 7px;
+            border-color: var(--accent); color: var(--accent); }
+  .g-lock { font-size: 10px; padding: 2px 7px; }
+  .g-lock.locked { border-color: var(--red); color: var(--red); }
+  .g-lock.unlocked { border-color: var(--border); color: var(--dim); }
+  .gauge-current-bar { border: 1px solid var(--border); border-radius: 8px;
+                       padding: 8px 10px; font-size: 11px; color: var(--dim);
+                       margin-bottom: 10px; line-height: 1.6; }
+  .gauge-current-bar b { color: var(--text); }
+  .gauge-current-bar .glevel { font-weight: 700; font-size: 13px; }
+
   /* context menu */
   #ctx { position: fixed; display: none; z-index: 99; min-width: 210px;
          background: var(--panel); border: 1px solid var(--border);
@@ -116,6 +149,7 @@
     <button id="addbtn">+ terminal</button>
     <button id="maxbtn" title="fill the grid with one terminal per CPU core">⚡ max procs</button>
     <button id="capsbtn" title="enable/disable MCP servers, skills, plugins">⛭ capabilities</button>
+    <button id="gaugebtn" title="security gauge — 5-level model &amp; routing access">🔒 security</button>
     <span id="hint">right-click a pane to split / close / change type</span>
     <span id="brand">surfing_ai private desktop</span>
   </div>
@@ -131,6 +165,7 @@
     <span id="s-files"></span>
     <span id="s-procs"></span>
     <span id="s-tokens" title="local file-size arithmetic — zero model tokens spent on this number"></span>
+    <span id="s-gauge" title="security gauge level"></span>
     <span id="s-audit" style="margin-left:auto"></span>
   </div>
 
@@ -288,6 +323,13 @@ function renderPane(pid) {
     body.innerHTML = '<div class="empty">loading…</div>';
     div.append(h2, body);
     setTimeout(() => loadCapsPane(pid), 0);
+  } else if (info.kind === "gauge") {
+    h2.textContent = "security gauge — model & routing access";
+    const body = document.createElement("div");
+    body.className = "body gauge-pane"; body.id = `gauge-${pid}`;
+    body.innerHTML = '<div class="empty">loading…</div>';
+    div.append(h2, body);
+    setTimeout(() => loadGaugePane(pid), 0);
   } else if (info.kind === "approvals") {
     h2.textContent = "approvals (focused session)";
     const body = document.createElement("div");
@@ -444,6 +486,260 @@ async function toggleCap(id, enabled, pid) {
   const r = await api("/api/capabilities/toggle", "POST", { id, enabled });
   if (r.error) return alert(r.error);
   await loadCapsPane(pid);
+}
+
+/* ===================== security gauge ===================== */
+
+let gaugeData = null;  // last fetched listing from /api/gauge
+
+// ── SVG semicircle gauge builder ────────────────────────────────────────────
+// cx,cy = center of flat base; r = radius; value ∈ [0,1]; color = stroke color
+// Returns an SVG element. The gauge arc goes from 180° (left) to 0° (right).
+
+function buildGaugeSvg(levelIdx, value, color, isActive, isLocked) {
+  const W = 120, H = 70;
+  const cx = W / 2, cy = H - 8, r = 50;
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.classList.add("gauge-svg");
+  svg.dataset.level = levelIdx;
+
+  // background arc (dim grey)
+  const bgArc = arcPath(cx, cy, r, 0, 1);
+  const bgEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  bgEl.setAttribute("d", bgArc);
+  bgEl.setAttribute("fill", "none");
+  bgEl.setAttribute("stroke", "#30363d");
+  bgEl.setAttribute("stroke-width", "14");
+  bgEl.setAttribute("stroke-linecap", "round");
+
+  // foreground arc (value fill)
+  const fgArc = arcPath(cx, cy, r, 0, Math.max(0.02, value));
+  const fgEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  fgEl.setAttribute("d", fgArc);
+  fgEl.setAttribute("fill", "none");
+  fgEl.setAttribute("stroke", isLocked ? "#444" : color);
+  fgEl.setAttribute("stroke-width", "14");
+  fgEl.setAttribute("stroke-linecap", "round");
+  fgEl.setAttribute("stroke-dasharray", isActive ? "none" : "none");
+
+  // needle line
+  const angle = Math.PI - value * Math.PI; // 180° → 0° for value 0→1
+  const nx = cx + r * Math.cos(angle);
+  const ny = cy - r * Math.sin(angle);
+  const needle = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  needle.setAttribute("x1", cx); needle.setAttribute("y1", cy);
+  needle.setAttribute("x2", nx); needle.setAttribute("y2", ny);
+  needle.setAttribute("stroke", isActive ? "#fff" : (isLocked ? "#555" : color));
+  needle.setAttribute("stroke-width", isActive ? "2.5" : "1.5");
+  needle.setAttribute("stroke-linecap", "round");
+
+  // center dot
+  const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  dot.setAttribute("cx", cx); dot.setAttribute("cy", cy); dot.setAttribute("r", "4");
+  dot.setAttribute("fill", isActive ? "#fff" : color);
+
+  // level number text
+  const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  txt.setAttribute("x", cx); txt.setAttribute("y", cy - r * 0.38);
+  txt.setAttribute("text-anchor", "middle");
+  txt.setAttribute("font-size", "16");
+  txt.setAttribute("font-weight", "700");
+  txt.setAttribute("fill", isActive ? "#fff" : (isLocked ? "#555" : color));
+  txt.textContent = levelIdx;
+
+  svg.append(bgEl, fgEl, needle, dot, txt);
+
+  // drag interaction — convert pointer angle to needle value
+  let dragging = false;
+  svg.addEventListener("pointerdown", (e) => {
+    if (isLocked) return;
+    e.preventDefault();
+    dragging = true;
+    svg.setPointerCapture(e.pointerId);
+    svg.style.cursor = "grabbing";
+  });
+  svg.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const rect = svg.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const scaleX = W / rect.width, scaleY = H / rect.height;
+    const dx = px * scaleX - cx, dy = py * scaleY - cy;
+    let angle = Math.atan2(-dy, dx); // atan2(y flipped because SVG y-down)
+    // clamp to [0, π]
+    if (angle < 0) angle = 0;
+    if (angle > Math.PI) angle = Math.PI;
+    const newVal = 1 - angle / Math.PI;
+    // update needle visually immediately (optimistic)
+    const newNx = cx + r * Math.cos(Math.PI - newVal * Math.PI);
+    const newNy = cy - r * Math.sin(Math.PI - newVal * Math.PI);
+    needle.setAttribute("x2", newNx); needle.setAttribute("y2", newNy);
+    // send to API (throttled)
+    clearTimeout(svg._needleTimer);
+    svg._needleTimer = setTimeout(async () => {
+      if (gaugeData && levelIdx === gaugeData.level) {
+        await api("/api/gauge/set", "POST", { action: "needle", needle: newVal });
+        await refreshGauge();
+      }
+    }, 80);
+  });
+  svg.addEventListener("pointerup", (e) => {
+    if (!dragging) return;
+    dragging = false;
+    svg.style.cursor = "grab";
+  });
+
+  return svg;
+}
+
+// Arc path helper: SVG arc from angle=π (left) to the position at [0,frac]*π
+function arcPath(cx, cy, r, startFrac, endFrac) {
+  // startFrac=0 → leftmost (180°), endFrac=1 → rightmost (0°)
+  const startAngle = Math.PI;
+  const endAngle = Math.PI - endFrac * Math.PI;
+  const x1 = cx + r * Math.cos(startAngle);
+  const y1 = cy - r * Math.sin(startAngle);
+  const x2 = cx + r * Math.cos(endAngle);
+  const y2 = cy - r * Math.sin(endAngle);
+  const largeArc = endFrac > 0.5 ? 1 : 0;
+  return `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`;
+}
+
+// ── gauge API helpers ────────────────────────────────────────────────────────
+
+async function refreshGauge() {
+  const data = await api("/api/gauge").catch(() => null);
+  if (!data || data.error) return;
+  gaugeData = data;
+  updateGaugeStatus();
+  // re-render any open gauge panes
+  document.querySelectorAll('[id^="gauge-"]').forEach(el => {
+    const pid = Number(el.id.replace("gauge-", ""));
+    if (panes.get(pid)?.kind === "gauge") renderGaugePaneContent(el, data);
+  });
+}
+
+function updateGaugeStatus() {
+  if (!gaugeData) return;
+  const def = gaugeData.current || gaugeData.levels?.[gaugeData.level];
+  const name = def?.name ?? "?";
+  const color = def?.color ?? "#8b949e";
+  const el = document.getElementById("s-gauge");
+  if (el) {
+    el.textContent = `🔒 sec=${gaugeData.level} ${name}`;
+    el.style.color = color;
+    el.title = def?.description ?? "";
+  }
+}
+
+// ── render gauge pane content ────────────────────────────────────────────────
+
+function renderGaugePaneContent(el, data) {
+  el.innerHTML = "";
+
+  // current level summary bar
+  const cur = data.current || data.levels[data.level];
+  const bar = document.createElement("div");
+  bar.className = "gauge-current-bar";
+  const extIcon = data.external_allowed ? "🌐" : "🚫";
+  bar.innerHTML =
+    `<span class="glevel" style="color:${cur.color}">Lv ${data.level} — ${cur.name}</span>` +
+    `  ${extIcon} external=${data.external_allowed ? "allowed" : "blocked"}` +
+    `  ·  models: <b>${(data.allowed_models || []).join(", ") || "none"}</b>`;
+  el.appendChild(bar);
+
+  // 5 gauge cards
+  const grid = document.createElement("div");
+  grid.className = "gauge-grid";
+
+  for (const def of data.levels) {
+    const lvl = def.level;
+    const isActive = lvl === data.level;
+    const isLocked = data.locked_levels.includes(lvl);
+
+    const card = document.createElement("div");
+    card.className = "gauge-card" +
+      (isActive ? " active" : "") +
+      (isLocked ? " locked" : "");
+    card.title = def.description;
+
+    const lbl = document.createElement("div");
+    lbl.className = "gauge-label";
+    lbl.style.color = def.color;
+    lbl.textContent = `Lv ${lvl} ${def.name}`;
+
+    // needle value: 1.0 if below active, fractional if active, 0 if above
+    let needleVal;
+    if (lvl < data.level) needleVal = 1.0;
+    else if (lvl === data.level) needleVal = Math.max(0.05, data.needle);
+    else needleVal = 0.0;
+
+    const svg = buildGaugeSvg(lvl, needleVal, def.color, isActive, isLocked);
+
+    const desc = document.createElement("div");
+    desc.className = "gauge-desc";
+    desc.textContent = def.description;
+
+    const models = document.createElement("div");
+    models.className = "gauge-models";
+    const ms = def.allowed_models || [];
+    models.textContent = ms.length
+      ? ms.map(m => m.split(/[-/]/)[0]).join(", ")  // short names
+      : "no models";
+
+    const btns = document.createElement("div");
+    btns.className = "gauge-btns";
+
+    const setBtn = document.createElement("button");
+    setBtn.className = "tg g-set";
+    setBtn.textContent = isActive ? "active" : "set";
+    setBtn.disabled = isActive || isLocked;
+    setBtn.onclick = async (e) => {
+      e.stopPropagation();
+      const r = await api("/api/gauge/set", "POST", { action: "set_level", level: lvl });
+      if (r.error) return alert(r.error);
+      await refreshGauge();
+    };
+
+    const lockBtn = document.createElement("button");
+    lockBtn.className = "tg g-lock " + (isLocked ? "locked" : "unlocked");
+    lockBtn.textContent = isLocked ? "🔒 locked" : "🔓 lock";
+    lockBtn.onclick = async (e) => {
+      e.stopPropagation();
+      const action = isLocked ? "unlock" : "lock";
+      await api("/api/gauge/set", "POST", { action, level: lvl });
+      await refreshGauge();
+    };
+
+    btns.append(setBtn, lockBtn);
+    card.append(lbl, svg, desc, models, btns);
+    grid.appendChild(card);
+
+    // clicking the card itself activates the level
+    card.onclick = async () => {
+      if (isLocked || isActive) return;
+      const r = await api("/api/gauge/set", "POST", { action: "set_level", level: lvl });
+      if (r.error) return alert(r.error);
+      await refreshGauge();
+    };
+  }
+
+  el.appendChild(grid);
+}
+
+async function loadGaugePane(pid) {
+  await refreshGauge();
+  const el = document.getElementById(`gauge-${pid}`);
+  if (!el || !gaugeData) return;
+  renderGaugePaneContent(el, gaugeData);
+}
+
+function addGaugePane() {
+  const leaf = newPane("gauge");
+  if (!layout) { layout = leaf; renderLayout(); return; }
+  splitPane(focused ?? allPids()[0], "row", leaf);
 }
 
 function addCapsPane() {
@@ -603,6 +899,8 @@ function openMenu(event, pid) {
     () => changeKind(pid, "health")));
   ctx.appendChild(menuItem("⛭ turn into capabilities pane",
     () => changeKind(pid, "capabilities")));
+  ctx.appendChild(menuItem("🔒 turn into security gauge pane",
+    () => changeKind(pid, "gauge")));
   const sep2 = document.createElement("div");
   sep2.className = "sep"; ctx.appendChild(sep2);
   ctx.appendChild(menuItem("⚡ fill max terminals", fillMax));
@@ -632,6 +930,7 @@ document.addEventListener("keydown", e => {
 document.getElementById("addbtn").onclick = () => addTerminalPane();
 document.getElementById("maxbtn").onclick = fillMax;
 document.getElementById("capsbtn").onclick = addCapsPane;
+document.getElementById("gaugebtn").onclick = addGaugePane;
 
 (async function boot() {
   const existing = await api("/api/sessions");
@@ -651,6 +950,8 @@ document.getElementById("capsbtn").onclick = addCapsPane;
   }
   loadCapsSummary();             // cached; status bar costs zero tokens
   setInterval(loadCapsSummary, 30000);
+  refreshGauge();                // security gauge (initial)
+  setInterval(refreshGauge, 15000);
   setInterval(refreshAll, 2000);
 })();
 </script>

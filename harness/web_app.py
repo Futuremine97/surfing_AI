@@ -24,8 +24,9 @@ from .multi_agent import build_orchestration_plan, runtime_catalog
 from .public_release_guard import run_release_check
 from .reduction_audit import audit_reduction
 from .release_package import archive_filename, build_release_bytes
-from .router import choose_route
+from .router import choose_route, model_for_gauge
 from .safety_barrier import scan_command
+from .security_gauge import SecurityGauge
 from .trace import TraceStore
 from .validator import VerifierGate
 
@@ -41,6 +42,7 @@ class WebAppService:
         self.trace = TraceStore()
         self.chat_agent = ChatAgent(self.project_root)
         self._openable_paths: set[str] = set()
+        self.gauge = SecurityGauge(self.project_root)
 
     def connections(self, payload: dict | None = None) -> dict:
         report = scan_connections(project_root=self.project_root)
@@ -119,6 +121,26 @@ class WebAppService:
                           allow_edits=result["analysis"].get("allow_edits"))
         return result
 
+    def gauge_status(self, payload: dict | None = None) -> dict:
+        return self.gauge.listing()
+
+    def gauge_set(self, payload: dict) -> dict:
+        action = str(payload.get("action", "set_level"))
+        if action == "lock":
+            result = self.gauge.lock_level(int(payload.get("level", 0)))
+        elif action == "unlock":
+            result = self.gauge.unlock_level(int(payload.get("level", 0)))
+        elif action == "needle":
+            result = self.gauge.set_needle(float(payload.get("needle", 0.0)))
+        else:
+            result = self.gauge.set_level(
+                int(payload.get("level", 0)),
+                float(payload.get("needle", 0.0)),
+            )
+        if "error" in result:
+            raise ValueError(result["error"])
+        return {**result, "gauge": self.gauge.listing()}
+
     def analyze(self, payload: dict) -> dict:
         goal = str(payload.get("goal", "")).strip()
         context = str(payload.get("context", ""))
@@ -133,7 +155,8 @@ class WebAppService:
             ]
 
         audit = audit_reduction(context, state, choose_route)
-        route = choose_route(state)
+        route = choose_route(state, gauge=self.gauge)
+        suggested_model = model_for_gauge(self.gauge)
         self.trace.record(
             state.task_id,
             "context_reducer",
@@ -146,7 +169,9 @@ class WebAppService:
             status=audit.status,
             missing_fields=audit.missing_fields,
         )
-        self.trace.record(state.task_id, "router", route=route)
+        self.trace.record(state.task_id, "router", route=route,
+                          gauge_level=self.gauge.get().level,
+                          suggested_model=suggested_model)
 
         return {
             "task": state.to_dict(),
@@ -157,6 +182,11 @@ class WebAppService:
                 "guidance": audit.guidance,
             },
             "route": route,
+            "gauge": {
+                "level": self.gauge.get().level,
+                "suggested_model": suggested_model,
+                "external_allowed": self.gauge.is_external_allowed(),
+            },
             "trace": self.trace.for_task(state.task_id),
         }
 
@@ -268,6 +298,9 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
         if path == "/api/runtimes":
             self._send_json({"runtimes": runtime_catalog()})
             return
+        if path == "/api/gauge":
+            self._send_json(self.service.gauge_status())
+            return
         if path == "/api/connections":
             self._send_json(self.service.connections())
             return
@@ -292,6 +325,7 @@ class HarnessRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         routes = {
             "/api/chat": self.service.chat,
+            "/api/gauge/set": self.service.gauge_set,
             "/api/open": self.service.open_path,
             "/api/convert-plugin": self.service.convert_plugin,
             "/api/backends/login": self.service.backend_login,

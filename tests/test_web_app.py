@@ -7,6 +7,8 @@ from harness.web_app import WEB_ROOT, WebAppService
 
 def test_analyze_returns_state_audit_route_and_trace(tmp_path):
     service = WebAppService(tmp_path)
+    # raise gauge to level 3 so routing is not constrained
+    service.gauge.set_level(3)
     result = service.analyze({
         "goal": "fix the failing test",
         "context": "tests/test_widget.py FAILED\nValueError: bad widget",
@@ -15,6 +17,8 @@ def test_analyze_returns_state_audit_route_and_trace(tmp_path):
     assert result["route"][-1] == "verifier"
     assert result["audit"]["status"] == "PASS"
     assert len(result["trace"]) == 3
+    assert "gauge" in result
+    assert result["gauge"]["level"] == 3
 
 
 def test_analyze_requires_goal(tmp_path):

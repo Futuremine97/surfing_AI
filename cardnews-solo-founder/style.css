@@ -1,0 +1,97 @@
+
+/* ===== 한국 1인 창업 카드뉴스 디자인 ===== */
+:root{
+  --ink:#16181d; --paper:#faf8f3; --muted:#5b6068;
+  --accent:#5b5bd6;        /* iris/indigo */
+  --accent-2:#12b886;      /* growth green */
+  --accent-soft:#ecebff;
+  --line:#e7e3da;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{width:1080px;height:1080px;}
+body{
+  font-family:"Apple SD Gothic Neo","Pretendard","Noto Sans KR",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased; overflow:hidden;
+  word-break:keep-all;
+}
+.page{
+  position:relative; width:1080px; height:1080px; overflow:hidden;
+  display:flex; flex-direction:column;
+  padding:90px 88px 76px; background:var(--paper); color:var(--ink);
+}
+/* 테마 */
+.theme-light .page{ background:var(--paper); color:var(--ink); }
+.theme-dark .page{ background:#14141b; color:#f6f5f1; }
+
+/* 배경 장식 */
+.bg-blob{ position:absolute; border-radius:50%; filter:blur(10px); opacity:.5; z-index:0; }
+.blob-a{ width:520px; height:520px; right:-160px; top:-160px;
+  background:radial-gradient(circle at 30% 30%, var(--accent), transparent 70%); }
+.blob-b{ width:460px; height:460px; left:-180px; bottom:-200px;
+  background:radial-gradient(circle at 50% 50%, var(--accent-2), transparent 70%); opacity:.35; }
+.theme-dark .blob-a{ opacity:.55; }
+.theme-dark .blob-b{ opacity:.4; }
+
+/* 상·하단 바 */
+.top,.bottom{ position:relative; z-index:2; display:flex; align-items:center;
+  justify-content:space-between; }
+.brand{ font-weight:800; font-size:30px; letter-spacing:-.01em; }
+.indicator{ font-size:26px; font-weight:700; color:var(--accent); }
+.indicator span{ color:var(--muted); font-weight:600; }
+.theme-dark .indicator span{ color:#8b8f99; }
+.bottom{ margin-top:auto; padding-top:24px; border-top:2px solid var(--line); }
+.theme-dark .bottom{ border-top-color:rgba(255,255,255,.12); }
+.foot-tag{ font-size:25px; color:var(--muted); }
+.theme-dark .foot-tag{ color:#9aa0aa; }
+.swipe{ font-size:25px; font-weight:700; color:var(--accent); }
+
+/* 본문 컨테이너 */
+.content{ position:relative; z-index:2; flex:1; display:flex; flex-direction:column;
+  justify-content:center; padding:30px 0; }
+
+/* ----- 표지 / CTA ----- */
+.cover{ display:flex; flex-direction:column; gap:30px; }
+.cover-kicker{ display:inline-block; align-self:flex-start; font-size:30px; font-weight:800;
+  color:#fff; background:var(--accent); padding:12px 26px; border-radius:999px;
+  letter-spacing:.02em; }
+.cover-title{ font-size:108px; line-height:1.12; font-weight:900; letter-spacing:-.03em; }
+.theme-dark .cover-title{ color:#fff; }
+.cover-sub,.cta-sub{ font-size:40px; line-height:1.5; color:var(--muted); font-weight:500; }
+.theme-dark .cover-sub,.theme-dark .cta-sub{ color:#c3c7cf; }
+.cta-action{ font-size:46px; font-weight:800; color:var(--accent-2); line-height:1.4; }
+.cta-note{ margin-top:8px; font-size:26px; line-height:1.55; color:#8b8f99; }
+
+/* ----- 콘텐츠 헤더 ----- */
+.card-head{ margin-bottom:44px; }
+.step{ display:inline-block; font-size:27px; font-weight:800; color:var(--accent);
+  background:var(--accent-soft); padding:9px 22px; border-radius:12px; margin-bottom:22px; }
+.theme-dark .step{ background:rgba(91,91,214,.22); }
+.card-title{ font-size:70px; line-height:1.18; font-weight:900; letter-spacing:-.03em; }
+.lead{ margin-top:18px; font-size:34px; line-height:1.5; color:var(--muted); }
+.theme-dark .lead{ color:#c3c7cf; }
+
+/* ----- 포인트 리스트 ----- */
+.points{ list-style:none; display:flex; flex-direction:column; gap:30px; }
+.point{ display:flex; gap:26px; align-items:flex-start; }
+.p-num{ flex:0 0 64px; width:64px; height:64px; border-radius:18px; background:var(--accent);
+  color:#fff; font-weight:800; font-size:34px; display:flex; align-items:center;
+  justify-content:center; }
+.p-body{ padding-top:2px; }
+.p-head{ font-size:42px; font-weight:800; line-height:1.32; letter-spacing:-.02em; }
+.p-desc{ margin-top:8px; font-size:31px; line-height:1.5; color:var(--muted); font-weight:500; }
+.theme-dark .p-desc{ color:#aab0ba; }
+
+/* ----- 체크리스트 ----- */
+.checks{ list-style:none; display:flex; flex-direction:column; gap:28px; }
+.check{ display:flex; gap:24px; align-items:center; font-size:42px; font-weight:700;
+  line-height:1.35; }
+.check .box{ flex:0 0 60px; width:60px; height:60px; border-radius:16px;
+  background:var(--accent-2); color:#fff; font-size:34px; font-weight:900;
+  display:flex; align-items:center; justify-content:center; }
+
+/* ----- 스탯 ----- */
+.stat-wrap{ text-align:center; margin:10px 0 40px; }
+.stat-big{ font-size:150px; font-weight:900; line-height:1; letter-spacing:-.04em;
+  color:var(--accent); }
+.stat-cap{ margin-top:14px; font-size:34px; font-weight:600; color:var(--muted); }
+.theme-dark .stat-cap{ color:#c3c7cf; }

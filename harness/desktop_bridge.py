@@ -166,6 +166,8 @@ class DesktopBridge:
         self.sessions: dict[int, BridgeSession] = {}
         self._next_id = 1
         self._lock = threading.Lock()
+        from harness.security_gauge import SecurityGauge
+        self.gauge = SecurityGauge(self.root)
 
     # ---- session management -----------------------------------------------
 
@@ -259,6 +261,8 @@ class DesktopBridge:
                     rows = summarize_health(project_root=str(bridge.root))
                     return self._send(200, {"rows": rows,
                                             "text": format_health(rows)})
+                if parts == ["api", "gauge"]:
+                    return self._send(200, bridge.gauge.listing())
                 if parts == ["api", "capabilities"]:
                     from harness.capability_registry import (
                         CapabilityRegistry)
@@ -289,6 +293,23 @@ class DesktopBridge:
                     mode = body.get("mode", DEFAULT_MODE)
                     result = self.server_create(mode)
                     return self._send(200, result)
+                if parts == ["api", "gauge", "set"]:
+                    action = body.get("action", "set_level")
+                    if action == "lock":
+                        result = bridge.gauge.lock_level(int(body.get("level", 0)))
+                    elif action == "unlock":
+                        result = bridge.gauge.unlock_level(int(body.get("level", 0)))
+                    elif action == "needle":
+                        result = bridge.gauge.set_needle(float(body.get("needle", 0.0)))
+                    else:
+                        result = bridge.gauge.set_level(
+                            int(body.get("level", 0)),
+                            float(body.get("needle", 0.0)),
+                        )
+                    if "error" in result:
+                        return self._send(400, result)
+                    return self._send(200, {**result,
+                                            "gauge": bridge.gauge.listing()})
                 if parts == ["api", "capabilities", "toggle"]:
                     from harness.capability_registry import (
                         CapabilityRegistry)
