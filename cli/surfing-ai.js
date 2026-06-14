@@ -29,7 +29,7 @@ const VERSION = require(path.join(ROOT, "package.json")).version;
 
 const PASSTHROUGH = new Set([
   "terminal-private", "tmux-private", "approvals", "backend-health",
-  "desktop", "max-procs", "threads",
+  "desktop", "max-procs", "threads", "fleet",
 ]);
 
 function checkPython() {
@@ -53,6 +53,8 @@ usage:
   surfing-ai max-procs --threads N worker budget = N% of logical threads
                                    (N = 20 | 50 | 70 | 100 | max)
   surfing-ai threads               show threads + 20/50/70/100% budget
+  surfing-ai fleet [--watch]       graphical agent/subagent fleet + threads
+  surfing-ai fleet --disable codex toggle a node / runtime / role on|off
   surfing-ai terminal-private      plain single REPL
   surfing-ai backend-health        backend status (safe vocabulary)
   surfing-ai approvals list        approval queue

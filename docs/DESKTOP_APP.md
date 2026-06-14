@@ -174,6 +174,32 @@ PrivateTerminal with its own tagged audit directory, so the allowlist,
 file guard, redaction, and `files_sent_external = 0` invariants hold at
 any parallelism.
 
+## Agent fleet — graphical control + live thread occupancy
+
+`surfing-ai fleet` renders a colored dashboard of every agent and
+subagent and shows, live, how dynamically they hold the machine's
+threads. The fleet mirrors `multi_agent.py`: one lane per runtime
+(Antigravity / Codex / Claude), each a `coordinator` plus `explorer`,
+`builder`, and `verifier` subagents (`harness/agent_fleet.py`).
+
+```bash
+surfing-ai fleet                       # one-shot graphic
+surfing-ai fleet --watch               # live: animates dynamic thread use
+surfing-ai fleet --disable codex       # toggle a node / runtime / role off
+surfing-ai fleet --enable builder      # ...back on (all builders here)
+surfing-ai fleet --weight builder=5    # re-weight the thread share
+surfing-ai fleet --threads 80 --json   # machine snapshot for web/desktop
+```
+
+The enabled nodes share the current thread budget proportionally to their
+weight (largest-remainder split), so the dashboard's **thread map** shows
+exactly which of the `budget` threads each agent holds (`█` active, `▒`
+held, `·` free) and a per-node utilization bar. The budget comes from
+`--threads`, else the saved `thread_budget.json` (set via the menu bar),
+else all logical threads. On/off and weight changes persist to
+`fleet_state.json` (gitignored). `snapshot()` returns the same data as
+JSON for the web / desktop frontends.
+
 ## Menu-bar app (top-right status item)
 
 Surfing AI lives in the macOS menu bar in two interchangeable forms;

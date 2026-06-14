@@ -56,6 +56,28 @@ def main(argv: list[str] | None = None) -> int:
                    help="show detected logical threads and the "
                         "20/50/70/100%% worker budget")
 
+    p_fleet = sub.add_parser(
+        "fleet", help="graphical agent/subagent fleet: toggle on/off, "
+                      "weight, and live thread occupancy")
+    p_fleet.add_argument("--root", default=str(ROOT))
+    p_fleet.add_argument("--threads", default=None,
+                         help="thread budget level for the allocation "
+                              "(20|50|60|70|80|90|100|max)")
+    p_fleet.add_argument("--enable", metavar="TOKEN",
+                         help="enable a node key, a runtime, a role, or all")
+    p_fleet.add_argument("--disable", metavar="TOKEN",
+                         help="disable a node key, a runtime, a role, or all")
+    p_fleet.add_argument("--weight", metavar="TOKEN=N",
+                         help="set the weight of a node/runtime/role")
+    p_fleet.add_argument("--watch", action="store_true",
+                         help="live dashboard animating dynamic thread use")
+    p_fleet.add_argument("--interval", type=float, default=0.6)
+    p_fleet.add_argument("--cycles", type=int, default=None,
+                         help="stop after N frames (headless watch)")
+    p_fleet.add_argument("--json", action="store_true",
+                         help="print a JSON snapshot instead of the graphic")
+    p_fleet.add_argument("--no-color", action="store_true")
+
     p_max = sub.add_parser("max-procs",
                            help="max-process grid: tmux panes, or "
                                 "headless parallel command runner")
@@ -129,6 +151,40 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "threads":
         from harness.thread_budget import format_table
         print(format_table())
+        return 0
+
+    if args.command == "fleet":
+        from harness.agent_fleet import (Fleet, render, render_watch,
+                                         snapshot)
+        fleet = Fleet.load(args.root)
+        changed = False
+        if args.enable:
+            nodes = fleet.set_enabled(args.enable, True)
+            print("enabled: " + ", ".join(n.key for n in nodes))
+            changed = True
+        if args.disable:
+            nodes = fleet.set_enabled(args.disable, False)
+            print("disabled: " + ", ".join(n.key for n in nodes))
+            changed = True
+        if args.weight:
+            token, _, val = args.weight.partition("=")
+            nodes = fleet.set_weight(token, int(val))
+            print(f"weight {int(val)}: " + ", ".join(n.key for n in nodes))
+            changed = True
+        if changed:
+            fleet.save(args.root)
+        if args.json:
+            import json as _json
+            print(_json.dumps(snapshot(fleet, args.root, args.threads),
+                              indent=2))
+            return 0
+        if args.watch:
+            render_watch(fleet, args.root, args.threads,
+                         interval=args.interval, cycles=args.cycles,
+                         color=not args.no_color)
+            return 0
+        print(render(fleet, args.root, args.threads,
+                     color=not args.no_color))
         return 0
 
     if args.command == "desktop":
