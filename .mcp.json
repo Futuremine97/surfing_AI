@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "surfing-ai": {
+      "command": "python3",
+      "args": ["integrations/mcp/surfing_ai_mcp.py"],
+      "env": {}
+    }
+  }
+}
