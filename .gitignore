@@ -41,6 +41,7 @@ fleet_state.json
 thread_budget.json
 bg_jobs.json
 bg_logs/
+cowork/
 
 # Build outputs
 dist/

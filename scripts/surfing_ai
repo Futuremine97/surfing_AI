@@ -106,6 +106,22 @@ def main(argv: list[str] | None = None) -> int:
     p_bg.add_argument("--root", default=str(ROOT))
     p_bg.add_argument("--tail", type=int, default=40)
 
+    p_cowork = sub.add_parser(
+        "cowork", help="long-running, proactive agentic mode: give a "
+                       "mission and it works, verifies, and monitors")
+    p_cowork.add_argument("action",
+                          choices=["start", "run", "status", "journal",
+                                   "list", "stop"])
+    p_cowork.add_argument("rest", nargs="*",
+                          help="mission words (start) or a session id")
+    p_cowork.add_argument("-s", "--session", default=None)
+    p_cowork.add_argument("-c", "--cycles", type=int, default=6)
+    p_cowork.add_argument("--watch", action="store_true",
+                          help="keep advancing/monitoring on an interval")
+    p_cowork.add_argument("--interval", type=float, default=1.0)
+    p_cowork.add_argument("--tail", type=int, default=20)
+    p_cowork.add_argument("--root", default=str(ROOT))
+
     p_desk = sub.add_parser("desktop",
                             help="desktop bridge: localhost UI + JSON API")
     p_desk.add_argument("--root", default=str(ROOT))
@@ -157,6 +173,83 @@ def main(argv: list[str] | None = None) -> int:
         from harness.backend_health import format_health, summarize_health
         print(format_health(summarize_health(project_root=str(ROOT))))
         return 0
+
+    if args.command == "cowork":
+        from harness import autopilot
+        action = args.action
+
+        def _resolve_sid():
+            sid = args.session or (args.rest[0] if args.rest else None) \
+                or autopilot.latest(args.root)
+            return sid
+
+        if action == "start":
+            mission = " ".join(args.rest).strip()
+            if not mission:
+                print("usage: surfing_ai cowork start \"<mission>\"")
+                return 1
+            session = autopilot.start(mission, args.root)
+            print(f"cowork session {session.sid} started")
+            print(f"  mission: {mission}")
+            print("  run it:  surfing_ai cowork run -s "
+                  f"{session.sid} --watch")
+            return 0
+
+        if action == "list":
+            rows = autopilot.list_sessions(args.root)
+            if not rows:
+                print("no cowork sessions")
+                return 0
+            for r in rows:
+                m = r["mission"][:44]
+                print(f"  {r['session']}  {r['status']:<10} "
+                      f"step {r['step']:<3}  {m}")
+            return 0
+
+        sid = _resolve_sid()
+        if not sid:
+            print("no cowork session found; start one first")
+            return 1
+        try:
+            session = autopilot.load(args.root, sid)
+        except FileNotFoundError:
+            print(f"no such cowork session: {sid}")
+            return 1
+
+        if action == "status":
+            import json as _json
+            print(_json.dumps(autopilot.status_summary(session), indent=2))
+            return 0
+        if action == "journal":
+            for e in session.read_journal()[-args.tail:]:
+                ph = f"[{e['phase']}] " if e.get("phase") else ""
+                print(f"  #{e['step']:<3} {ph}{e['type']}: {e['message']}")
+            return 0
+        if action == "stop":
+            autopilot.stop(session)
+            print(f"cowork session {sid} stopped")
+            return 0
+        if action == "run":
+            if args.watch:
+                import time as _t
+                try:
+                    while session.state["status"] != "stopped":
+                        entry = autopilot.tick(session)
+                        ph = f"[{entry['phase']}] " if entry.get("phase") \
+                            else ""
+                        print(f"#{entry['step']:<3} {ph}{entry['type']}: "
+                              f"{entry['message']}", flush=True)
+                        if args.cycles and entry["step"] >= args.cycles:
+                            break
+                        _t.sleep(max(0.0, args.interval))
+                except KeyboardInterrupt:
+                    pass
+                return 0
+            for entry in autopilot.run(session, cycles=args.cycles):
+                ph = f"[{entry['phase']}] " if entry.get("phase") else ""
+                print(f"#{entry['step']:<3} {ph}{entry['type']}: "
+                      f"{entry['message']}")
+            return 0
 
     if args.command == "bg":
         from harness import bg_jobs

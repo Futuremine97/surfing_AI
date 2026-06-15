@@ -174,6 +174,40 @@ PrivateTerminal with its own tagged audit directory, so the allowlist,
 file guard, redaction, and `files_sent_external = 0` invariants hold at
 any parallelism.
 
+## Cowork mode — long-running, proactive agent
+
+`surfing-ai cowork` gives the CLI a mission and lets it work on its own:
+it orients (backend health, agent fleet), plans (cross-runtime
+orchestration), acts (safe, allowlisted probes), verifies (thread-budget
+readiness), reflects, then settles into a steady-state **monitor** loop —
+staying active over a long session the way a cowork agent does.
+
+```bash
+surfing-ai cowork start "harden the release pipeline"   # prints a session id
+surfing-ai cowork run -s <id> -c 8        # advance 8 autonomous steps
+surfing-ai cowork run -s <id> --watch     # keep advancing / monitoring
+surfing-ai cowork status -s <id>          # JSON progress summary
+surfing-ai cowork journal -s <id> --tail 20
+surfing-ai cowork list                    # all sessions
+surfing-ai cowork stop -s <id>
+```
+
+It is deterministic and local — there is no external model call; autonomy
+comes from a playbook over the harness's own capabilities
+(`harness/autopilot.py`). Progress is appended to a journal under
+`cowork/<id>/` (gitignored), so a session **survives across CLI calls**,
+resumes where it left off, and can run detached:
+
+```bash
+surfing-ai bg start "python3 scripts/surfing_ai cowork run -s <id> -c 100"
+```
+
+Every shell action is screened by the same private-mode policy as the REPL
+(`check_command`); anything risky (`git push`, `scp`, …) is written to the
+journal as an `approval_request` for a human instead of being executed —
+the verification-gated, human-in-the-loop posture holds even in autonomous
+mode.
+
 ## Background jobs — persist across shell / CLI calls
 
 Each `surfing-ai exec` (and most CLI calls) spawns a fresh, short-lived
