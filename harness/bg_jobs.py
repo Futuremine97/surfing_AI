@@ -37,13 +37,14 @@ class Job:
     id: str
     command: str
     pid: int
-    status: str                 # running | exited | stopped | blocked
+    status: str             # running | exited | stopped | blocked | ended
     started_at: float
     log: str
     ended_at: float | None = None
     returncode: int | None = None
     reasons: list[str] = field(default_factory=list)
     alternative: str = ""
+    boot_id: str = ""        # OS boot when launched; reboot ⇒ process gone
 
     def to_dict(self) -> dict:
         return self.__dict__.copy()
@@ -90,11 +91,27 @@ def _alive(pid: int) -> bool:
 
 def _refresh(root: str | Path) -> list[dict]:
     """Update statuses from the OS and captured return codes; persist."""
+    from harness.system_identity import rebooted_since
     _, logdir = _paths(root)
     records = _read(root)
     changed = False
     for rec in records:
         if rec.get("status") != "running":
+            continue
+        # reboot wins over PID liveness: after a reboot the PID may be
+        # reused by an unrelated process, so never trust _alive() then.
+        if rebooted_since(rec.get("boot_id")):
+            rc_file = logdir / f"{rec['id']}.rc"
+            rc = None
+            try:
+                rc = int(rc_file.read_text().strip())
+            except Exception:
+                pass
+            rec["status"] = "ended"
+            rec["returncode"] = rc
+            rec["ended_at"] = time.time()
+            rec.setdefault("reasons", []).append("machine rebooted")
+            changed = True
             continue
         if _alive(rec["pid"]):
             continue
@@ -202,8 +219,10 @@ def start(command: str, root: str | Path) -> Job:
     else:
         pid = _spawn_daemon(command, root, log_path, rc_path)
 
+    from harness.system_identity import boot_id
     job = Job(id=job_id, command=command, pid=pid, status="running",
-              started_at=time.time(), log=str(log_path))
+              started_at=time.time(), log=str(log_path),
+              boot_id=boot_id())
     records = _read(root)
     records.append(job.to_dict())
     _write(root, records)
@@ -275,7 +294,8 @@ def format_table(root: str | Path) -> str:
     records = _refresh(root)
     if not records:
         return "no background jobs"
-    icon = {"running": "●", "exited": "✓", "stopped": "■", "blocked": "⨯"}
+    icon = {"running": "●", "exited": "✓", "stopped": "■", "blocked": "⨯",
+            "ended": "⏹"}
     rows = ["  id        state     pid     command",
             "  --------  --------  ------  -----------------------------"]
     for r in records:

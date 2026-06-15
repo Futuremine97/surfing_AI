@@ -208,6 +208,29 @@ journal as an `approval_request` for a human instead of being executed —
 the verification-gated, human-in-the-loop posture holds even in autonomous
 mode.
 
+### Recovery across reboot / a day later
+
+Sessions are recovered by **boot id**, not PID. Each session and
+background job records the OS boot identifier
+(`harness/system_identity.py`); on inspection the harness compares it to
+the current boot. After a reboot a stored PID may be reused by an
+unrelated process, so PID liveness is never trusted across boots:
+
+- Background jobs whose boot id no longer matches are marked `ended`
+  (`⏹`, reason "machine rebooted") rather than falsely shown running.
+- Cowork sessions persist their full journal/state on disk, so a day or a
+  reboot later they are still listed and resumable:
+
+```bash
+surfing-ai cowork recover          # list interrupted sessions (idle + ⟳reboot)
+surfing-ai cowork resume -s <id>   # note the gap, refresh boot stamp, continue
+surfing-ai cowork resume --all     # recover every interrupted session
+```
+
+`resume` writes a `recovery` journal entry recording how long the session
+was idle and whether the machine rebooted, then advances the loop from
+exactly where it stopped.
+
 ## Background jobs — persist across shell / CLI calls
 
 Each `surfing-ai exec` (and most CLI calls) spawns a fresh, short-lived

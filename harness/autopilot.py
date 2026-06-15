@@ -23,6 +23,8 @@ import time
 from pathlib import Path
 from uuid import uuid4
 
+from harness.system_identity import boot_id, human_gap, rebooted_since
+
 REPO = Path(__file__).resolve().parent.parent
 COWORK_DIR = "cowork"
 
@@ -165,11 +167,12 @@ def start(mission: str, root, exec_root=None) -> Session:
     if not mission:
         raise ValueError("mission is required")
     sid = uuid4().hex[:8]
+    now = time.time()
     state = {
         "session": sid, "mission": mission, "status": "active",
         "step": 0, "cursor": 0,
         "exec_root": str(exec_root or root),
-        "created": time.time(),
+        "created": now, "last_active": now, "boot_id": boot_id(),
     }
     session = Session(root, sid, state)
     session.save()
@@ -206,6 +209,8 @@ def tick(session: Session) -> dict:
     if session.state["status"] == "stopped":
         return session.append("info", "session is stopped", phase="halt")
     session.state["step"] += 1
+    session.state["last_active"] = time.time()
+    session.state["boot_id"] = boot_id()
     cursor = session.state["cursor"]
 
     if cursor < len(PLAYBOOK):
@@ -247,6 +252,42 @@ def run(session: Session, cycles: int = 6) -> list[dict]:
     return out
 
 
+def resume(session: Session, cycles: int = 6) -> list[dict]:
+    """Recover a session after a reboot or a long idle gap, then continue.
+
+    The full state lives on disk, so recovery means: note the gap, refresh
+    the boot stamp, reactivate if it had been left in a terminal state, and
+    advance the loop again.
+    """
+    last = session.state.get("last_active", session.state.get("created", 0))
+    gap = time.time() - last
+    rebooted = rebooted_since(session.state.get("boot_id"))
+    session.state["boot_id"] = boot_id()
+    if session.state["status"] == "stopped":
+        session.state["status"] = (
+            "monitoring" if session.state["cursor"] >= len(PLAYBOOK)
+            else "active")
+    note = f"resumed after {human_gap(gap)} idle"
+    if rebooted:
+        note += " (machine rebooted — prior driver process is gone)"
+    session.append("recovery", note, phase="resume",
+                   idle_seconds=int(gap), rebooted=rebooted)
+    session.save()
+    return run(session, cycles)
+
+
+def recoverable(root) -> list[dict]:
+    """Sessions that were left unfinished (not stopped) and can be resumed,
+    annotated with how long they have been idle and whether the machine has
+    rebooted since they last ran."""
+    out = []
+    for row in list_sessions(root):
+        if row["status"] == "stopped":
+            continue
+        out.append(row)
+    return out
+
+
 def stop(session: Session) -> Session:
     session.state["status"] = "stopped"
     session.save()
@@ -273,10 +314,14 @@ def list_sessions(root) -> list[dict]:
             if sf.is_file():
                 try:
                     st = json.loads(sf.read_text())
+                    last = st.get("last_active", st.get("created", 0))
                     rows.append({"session": st["session"],
                                  "status": st.get("status", "?"),
                                  "step": st.get("step", 0),
-                                 "mission": st.get("mission", "")})
+                                 "mission": st.get("mission", ""),
+                                 "idle": human_gap(time.time() - last),
+                                 "rebooted": rebooted_since(
+                                     st.get("boot_id"))})
                 except Exception:
                     pass
     return rows

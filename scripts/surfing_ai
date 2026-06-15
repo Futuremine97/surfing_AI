@@ -111,11 +111,14 @@ def main(argv: list[str] | None = None) -> int:
                        "mission and it works, verifies, and monitors")
     p_cowork.add_argument("action",
                           choices=["start", "run", "status", "journal",
-                                   "list", "stop"])
+                                   "list", "stop", "resume", "recover"])
     p_cowork.add_argument("rest", nargs="*",
                           help="mission words (start) or a session id")
     p_cowork.add_argument("-s", "--session", default=None)
     p_cowork.add_argument("-c", "--cycles", type=int, default=6)
+    p_cowork.add_argument("--all", dest="all_sessions", action="store_true",
+                          help="with resume: recover every interrupted "
+                               "session")
     p_cowork.add_argument("--watch", action="store_true",
                           help="keep advancing/monitoring on an interval")
     p_cowork.add_argument("--interval", type=float, default=1.0)
@@ -195,15 +198,35 @@ def main(argv: list[str] | None = None) -> int:
                   f"{session.sid} --watch")
             return 0
 
-        if action == "list":
-            rows = autopilot.list_sessions(args.root)
+        if action in ("list", "recover"):
+            rows = (autopilot.recoverable(args.root) if action == "recover"
+                    else autopilot.list_sessions(args.root))
             if not rows:
-                print("no cowork sessions")
+                print("no recoverable cowork sessions" if action == "recover"
+                      else "no cowork sessions")
                 return 0
             for r in rows:
-                m = r["mission"][:44]
+                m = r["mission"][:38]
+                flag = " ⟳reboot" if r.get("rebooted") else ""
                 print(f"  {r['session']}  {r['status']:<10} "
-                      f"step {r['step']:<3}  {m}")
+                      f"step {r['step']:<3} idle {r.get('idle', '?'):<4}"
+                      f"{flag}  {m}")
+            if action == "recover" and rows:
+                print("\nresume one:  surfing_ai cowork resume -s <id>")
+                print("resume all:  surfing_ai cowork resume --all")
+            return 0
+
+        if action == "resume" and args.all_sessions:
+            rows = autopilot.recoverable(args.root)
+            if not rows:
+                print("no recoverable cowork sessions")
+                return 0
+            for r in rows:
+                session = autopilot.load(args.root, r["session"])
+                autopilot.resume(session, cycles=args.cycles)
+                print(f"resumed {r['session']} (was idle {r['idle']}"
+                      f"{', rebooted' if r['rebooted'] else ''}) -> "
+                      f"step {session.state['step']}")
             return 0
 
         sid = _resolve_sid()
@@ -228,6 +251,12 @@ def main(argv: list[str] | None = None) -> int:
         if action == "stop":
             autopilot.stop(session)
             print(f"cowork session {sid} stopped")
+            return 0
+        if action == "resume":
+            for entry in autopilot.resume(session, cycles=args.cycles):
+                ph = f"[{entry['phase']}] " if entry.get("phase") else ""
+                print(f"#{entry['step']:<3} {ph}{entry['type']}: "
+                      f"{entry['message']}")
             return 0
         if action == "run":
             if args.watch:
