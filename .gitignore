@@ -45,3 +45,69 @@ cowork/
 
 # Build outputs
 dist/
+
+# private research / release-sensitive
+private/
+tt_codes/
+qec_private/
+decoder_private/
+fpga_private/
+reports/
+audit_logs/
+private_candidates/
+thesis_private/
+.private_release_blocklist.yaml
+
+# build artifacts
+dist/
+build/
+*.app/
+*.log
+*.lp
+*.mps
+*.sol
+verification.json
+
+# private research / release-sensitive
+private/
+tt_codes/
+qec_private/
+decoder_private/
+fpga_private/
+reports/
+audit_logs/
+private_candidates/
+thesis_private/
+.private_release_blocklist.yaml
+
+# build artifacts
+dist/
+build/
+*.app/
+*.log
+*.lp
+*.mps
+*.sol
+verification.json
+
+# private research / release-sensitive
+private/
+tt_codes/
+qec_private/
+decoder_private/
+fpga_private/
+reports/
+audit_logs/
+private_candidates/
+thesis_private/
+.private_release_blocklist.yaml
+
+# build artifacts
+dist/
+build/
+*.app/
+*.log
+*.lp
+*.mps
+*.sol
+verification.json
