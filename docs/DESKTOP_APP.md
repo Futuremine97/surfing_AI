@@ -174,6 +174,33 @@ PrivateTerminal with its own tagged audit directory, so the allowlist,
 file guard, redaction, and `files_sent_external = 0` invariants hold at
 any parallelism.
 
+## Background jobs — persist across shell / CLI calls
+
+Each `surfing-ai exec` (and most CLI calls) spawns a fresh, short-lived
+process, so a command started in one call dies with it. `surfing-ai bg`
+launches long-running commands *detached* so they outlive the call, and
+records them in `bg_jobs.json` (gitignored) with output in `bg_logs/`. A
+later, unrelated CLI call reads the same registry.
+
+```bash
+surfing-ai bg start "python3 -m http.server 8000"   # detached; prints id+pid
+surfing-ai bg list                                  # ●running ✓exited ■stopped ⨯blocked
+surfing-ai bg logs <id> --tail 40                   # tail the captured output
+surfing-ai bg status <id>                           # JSON record
+surfing-ai bg stop <id>                             # SIGTERM→SIGKILL the group
+surfing-ai bg prune                                 # drop finished jobs
+```
+
+Implementation (`harness/bg_jobs.py`): a POSIX double-fork reparents the
+job to init, so it never becomes a zombie of the launching process and
+truly survives it; the job keeps its own session/process group so `stop`
+can signal the whole tree, and a supervisor records the exit code. Every
+command is screened by the same private-mode policy as the REPL
+(`terminal_private_mode.check_command`) — `git push`, `scp`, `sudo`,
+shell metacharacters, and non-allowlisted commands are refused with a
+reason and an alternative, so a background launch can't bypass the
+allowlist.
+
 ## Agent fleet — graphical control + live thread occupancy
 
 `surfing-ai fleet` renders a colored dashboard of every agent and

@@ -39,6 +39,8 @@ desktop/src-tauri/target/
 # Runtime control state — local only
 fleet_state.json
 thread_budget.json
+bg_jobs.json
+bg_logs/
 
 # Build outputs
 dist/

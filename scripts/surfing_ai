@@ -96,6 +96,16 @@ def main(argv: list[str] | None = None) -> int:
                        help="headless: run these commands in parallel "
                             "across N private terminals and exit")
 
+    p_bg = sub.add_parser(
+        "bg", help="background jobs that persist across shell/CLI calls")
+    p_bg.add_argument("action",
+                      choices=["start", "list", "status", "stop", "logs",
+                               "prune"])
+    p_bg.add_argument("rest", nargs="*",
+                      help="command words (start) or a job id (others)")
+    p_bg.add_argument("--root", default=str(ROOT))
+    p_bg.add_argument("--tail", type=int, default=40)
+
     p_desk = sub.add_parser("desktop",
                             help="desktop bridge: localhost UI + JSON API")
     p_desk.add_argument("--root", default=str(ROOT))
@@ -147,6 +157,52 @@ def main(argv: list[str] | None = None) -> int:
         from harness.backend_health import format_health, summarize_health
         print(format_health(summarize_health(project_root=str(ROOT))))
         return 0
+
+    if args.command == "bg":
+        from harness import bg_jobs
+        action = args.action
+        if action == "start":
+            command = " ".join(args.rest).strip()
+            if not command:
+                print("usage: surfing_ai bg start \"<command>\"")
+                return 1
+            job = bg_jobs.start(command, args.root)
+            if job.status == "blocked":
+                print(f"BLOCKED: {', '.join(job.reasons)}")
+                if job.alternative:
+                    print(f"  alternative: {job.alternative}")
+                return 1
+            print(f"started {job.id}  pid {job.pid}\n  log: {job.log}")
+            return 0
+        if action == "list":
+            print(bg_jobs.format_table(args.root))
+            return 0
+        if action in ("status", "stop", "logs"):
+            if not args.rest:
+                print(f"usage: surfing_ai bg {action} <id>")
+                return 1
+            job_id = args.rest[0]
+            try:
+                if action == "status":
+                    rec = bg_jobs.get(args.root, job_id)
+                    if rec is None:
+                        print(f"no such job: {job_id}")
+                        return 1
+                    import json as _json
+                    print(_json.dumps(rec, indent=2))
+                elif action == "stop":
+                    rec = bg_jobs.stop(args.root, job_id)
+                    print(f"stopped {job_id} ({rec['status']})")
+                else:  # logs
+                    print(bg_jobs.logs(args.root, job_id, tail=args.tail))
+            except KeyError as exc:
+                print(str(exc))
+                return 1
+            return 0
+        if action == "prune":
+            removed = bg_jobs.prune(args.root)
+            print(f"pruned {removed} finished job(s)")
+            return 0
 
     if args.command == "threads":
         from harness.thread_budget import format_table
